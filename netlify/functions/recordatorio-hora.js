@@ -58,23 +58,25 @@ exports.handler = async () => {
     }
 
     avisos.push((async () => {
-      const dispDoc = await db.collection('dispositivos').doc(v.responsable).get();
-      console.log(`[recordatorio-hora] dispositivo de "${v.responsable}" existe=${dispDoc.exists} tieneToken=${!!(dispDoc.exists && dispDoc.data().token)}`);
-      if (dispDoc.exists && dispDoc.data().token) {
+      const dispSnap = await db.collection('dispositivos').where('nombre', '==', v.responsable).get();
+      console.log(`[recordatorio-hora] dispositivos de "${v.responsable}": ${dispSnap.size}`);
+      await Promise.all(dispSnap.docs.map(async dispDoc => {
+        const token = dispDoc.data().token;
+        if (!token) return;
         try {
           await admin.messaging().send({
-            token: dispDoc.data().token,
+            token,
             notification: {
               title: 'En 1 hora tenés visita ⏰',
               body: `${v.direccion} — ${v.hora}hs (${v.nombreInteresado || 'interesado'})`
             },
             webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
           });
-          console.log(`[recordatorio-hora] push enviado OK a ${v.responsable}`);
+          console.log(`[recordatorio-hora] push enviado OK a ${v.responsable} (dispositivo ${dispDoc.id})`);
         } catch (err) {
-          console.warn(`[recordatorio-hora] No se pudo avisar a ${v.responsable}:`, err.message);
+          console.warn(`[recordatorio-hora] No se pudo avisar a ${v.responsable} (dispositivo ${dispDoc.id}):`, err.message);
         }
-      }
+      }));
       await doc.ref.update({ recordatorioEnviado: true });
     })());
   });
