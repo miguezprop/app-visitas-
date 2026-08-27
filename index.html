@@ -214,7 +214,7 @@
   </div>
 
   <div class="card">
-    <h2>Cargar nueva visita</h2>
+    <h2 id="titulo-form-visita">Cargar nueva visita</h2>
     <form id="form-visita">
       <label for="direccion">Dirección</label>
       <input type="text" id="direccion" placeholder="Ej: Calle 4 entre 64 y 65" required>
@@ -241,8 +241,9 @@
         <option value="" disabled selected>Elegir responsable</option>
       </select>
 
-      <button type="submit" class="btn-primario">Guardar visita</button>
-      <p class="aviso">Al guardar se arma automáticamente el mensaje de WhatsApp para el responsable — solo hay que tocar "Enviar por WhatsApp".</p>
+      <button type="submit" class="btn-primario" id="btn-guardar-visita">Guardar visita</button>
+      <button type="button" class="btn-primario" id="btn-cancelar-edicion" style="display:none; background:#a0aec0; margin-top:8px;">Cancelar edición</button>
+      <p class="aviso" id="aviso-form-visita">Al guardar se arma automáticamente el mensaje de WhatsApp para el responsable — solo hay que tocar "Enviar por WhatsApp".</p>
     </form>
   </div>
 
@@ -433,8 +434,12 @@
     return encodeURIComponent(linea);
   }
 
+  let visitasActuales = [];
+  let idVisitaEditando = null;
+
   function render(visitas){
     visitas = visitas.slice().sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+    visitasActuales = visitas;
 
     const cont = document.getElementById("lista-visitas");
     const contador = document.getElementById("contador");
@@ -468,6 +473,7 @@
           <button class="btn-confirmar ${v.confirmada ? 'hecho' : ''}" onclick="marcarConfirmada('${v.id}', ${!!v.confirmada})">
             ${v.confirmada ? "Confirmada" : "Marcar confirmada"}
           </button>
+          <button class="btn-borrar" onclick="editarVisita('${v.id}')" style="color:var(--azul);background:#ebf4ff;">✎</button>
           <button class="btn-borrar" onclick="borrarVisita('${v.id}')">✕</button>
         </div>
       `;
@@ -484,15 +490,64 @@
     coleccionVisitas.doc(id).delete();
   }
 
+  function editarVisita(id){
+    const v = visitasActuales.find(x => x.id === id);
+    if(!v) return;
+    idVisitaEditando = id;
+    document.getElementById("direccion").value = v.direccion || "";
+    document.getElementById("fecha").value = v.fecha || "";
+    document.getElementById("hora").value = v.hora || "";
+    document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
+    document.getElementById("telefono-interesado").value = v.telefonoInteresado || "";
+    document.getElementById("responsable").value = v.responsable || "";
+
+    document.getElementById("titulo-form-visita").textContent = "Editar visita";
+    document.getElementById("btn-guardar-visita").textContent = "Guardar cambios";
+    document.getElementById("btn-cancelar-edicion").style.display = "block";
+    document.getElementById("aviso-form-visita").textContent =
+      "Si cambiás el día o la hora, los recordatorios automáticos se vuelven a programar para el nuevo horario.";
+
+    document.getElementById("form-visita").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function cancelarEdicion(){
+    idVisitaEditando = null;
+    document.getElementById("form-visita").reset();
+    document.getElementById("titulo-form-visita").textContent = "Cargar nueva visita";
+    document.getElementById("btn-guardar-visita").textContent = "Guardar visita";
+    document.getElementById("btn-cancelar-edicion").style.display = "none";
+    document.getElementById("aviso-form-visita").textContent =
+      "Al guardar se arma automáticamente el mensaje de WhatsApp para el responsable — solo hay que tocar \"Enviar por WhatsApp\".";
+  }
+
+  document.getElementById("btn-cancelar-edicion").addEventListener("click", cancelarEdicion);
+
   document.getElementById("form-visita").addEventListener("submit", function(e){
     e.preventDefault();
-    const nuevaVisita = {
+    const datosVisita = {
       direccion: document.getElementById("direccion").value.trim(),
       fecha: document.getElementById("fecha").value,
       hora: document.getElementById("hora").value,
       nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
       telefonoInteresado: document.getElementById("telefono-interesado").value.trim(),
-      responsable: document.getElementById("responsable").value,
+      responsable: document.getElementById("responsable").value
+    };
+
+    if(idVisitaEditando){
+      // Al editar, reseteamos los flags de recordatorio para que los avisos automáticos
+      // se vuelvan a evaluar con el día/hora nuevos (por si cambiaron).
+      coleccionVisitas.doc(idVisitaEditando).update({
+        ...datosVisita,
+        recordatorioEnviado: false,
+        recordatorio2hEnviado: false
+      }).then(() => {
+        cancelarEdicion();
+      }).catch(err => alert("No se pudo guardar los cambios. Revisá la conexión.\n" + err.message));
+      return;
+    }
+
+    const nuevaVisita = {
+      ...datosVisita,
       confirmada: false,
       creado: firebase.firestore.FieldValue.serverTimestamp()
     };
