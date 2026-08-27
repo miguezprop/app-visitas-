@@ -270,7 +270,6 @@
     appId: "1:552690822086:web:fb2f5867f08b548dbba0c7"
   };
   // Clave VAPID de Cloud Messaging (Firebase → Configuración del proyecto → Cloud Messaging → Certificados push web)
-  // Mientras diga "PEGAR_VAPID_KEY_ACA", las notificaciones automáticas quedan desactivadas sin romper el resto de la app.
   const VAPID_KEY = "BIU9YV87m2qsrcu0BqU-xi1OXwlp35E38JXnBDcxvOWt3szOQw-TV6TaQgAUVIkZRFc7_DZ9BinCXzsEwBy9vm4";
 
   firebase.initializeApp(firebaseConfig);
@@ -280,6 +279,16 @@
   const coleccionDispositivos = db.collection("dispositivos");
 
   const CLAVE_QUIEN_SOY = "visitas_quien_soy";
+  const CLAVE_DEVICE_ID = "visitas_device_id";
+
+  function obtenerDeviceId(){
+    let id = localStorage.getItem(CLAVE_DEVICE_ID);
+    if(!id){
+      id = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem(CLAVE_DEVICE_ID, id);
+    }
+    return id;
+  }
 
   let dejarDeEscuchar = null;
 
@@ -379,7 +388,11 @@
       })
       .then(token => {
         if(!token) return;
-        coleccionDispositivos.doc(nombre).set({
+        // Cada aparato (celu, PC, etc.) tiene su propio documento, para que a una misma
+        // persona le puedan llegar los avisos en más de un aparato a la vez.
+        const idDoc = nombre + "_" + obtenerDeviceId();
+        coleccionDispositivos.doc(idDoc).set({
+          nombre: nombre,
           token: token,
           actualizado: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
@@ -388,13 +401,16 @@
   }
 
   function avisarPorPush(nombreResponsable, titulo, cuerpo){
-    coleccionDispositivos.doc(nombreResponsable).get().then(doc => {
-      if(!doc.exists || !doc.data().token) return;
-      fetch("/.netlify/functions/enviar-notificacion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: doc.data().token, title: titulo, body: cuerpo })
-      }).catch(() => {}); // si falla, no pasa nada — siempre queda el botón de WhatsApp como respaldo
+    coleccionDispositivos.where("nombre", "==", nombreResponsable).get().then(snap => {
+      snap.forEach(doc => {
+        const token = doc.data().token;
+        if(!token) return;
+        fetch("/.netlify/functions/enviar-notificacion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: token, title: titulo, body: cuerpo })
+        }).catch(() => {}); // si falla, no pasa nada — siempre queda el botón de WhatsApp como respaldo
+      });
     });
   }
 
