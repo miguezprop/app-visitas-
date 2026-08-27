@@ -34,20 +34,23 @@ exports.handler = async () => {
   });
 
   const envios = Object.entries(porResponsable).map(async ([nombre, cantidad]) => {
-    const dispDoc = await db.collection('dispositivos').doc(nombre).get();
-    if (!dispDoc.exists || !dispDoc.data().token) return;
-    try {
-      await admin.messaging().send({
-        token: dispDoc.data().token,
-        notification: {
-          title: 'Buen día ☀️',
-          body: `Hoy tenés ${cantidad} visita${cantidad === 1 ? '' : 's'} agendada${cantidad === 1 ? '' : 's'}.`
-        },
-        webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
-      });
-    } catch (err) {
-      console.warn(`No se pudo avisar a ${nombre}:`, err.message);
-    }
+    const dispSnap = await db.collection('dispositivos').where('nombre', '==', nombre).get();
+    await Promise.all(dispSnap.docs.map(async dispDoc => {
+      const token = dispDoc.data().token;
+      if (!token) return;
+      try {
+        await admin.messaging().send({
+          token,
+          notification: {
+            title: 'Buen día ☀️',
+            body: `Hoy tenés ${cantidad} visita${cantidad === 1 ? '' : 's'} agendada${cantidad === 1 ? '' : 's'}.`
+          },
+          webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
+        });
+      } catch (err) {
+        console.warn(`No se pudo avisar a ${nombre} (dispositivo ${dispDoc.id}):`, err.message);
+      }
+    }));
   });
 
   await Promise.all(envios);
