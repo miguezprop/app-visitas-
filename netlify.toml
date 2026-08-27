@@ -9,3 +9,7 @@
 # cada 15 minutos, para detectar visitas que empiezan en ~1 hora
 [functions."recordatorio-hora"]
   schedule = "*/15 * * * *"
+
+# cada 15 minutos, para detectar visitas que empiezan en ~2 horas
+[functions."recordatorio-2horas"]
+  schedule = "*/15 * * * *"
