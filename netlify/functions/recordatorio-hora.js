@@ -27,7 +27,10 @@ exports.handler = async () => {
   const hoy = fechaStr(ahora);
   const minutosAhora = ahora.getUTCHours() * 60 + ahora.getUTCMinutes();
 
+  console.log(`[recordatorio-hora] hoy=${hoy} horaArgentinaAhora=${ahora.getUTCHours()}:${String(ahora.getUTCMinutes()).padStart(2,'0')}`);
+
   const snap = await db.collection('visitas').where('fecha', '==', hoy).get();
+  console.log(`[recordatorio-hora] visitas encontradas para hoy: ${snap.size}`);
   if (snap.empty) {
     return { statusCode: 200, body: 'Sin visitas hoy.' };
   }
@@ -36,17 +39,27 @@ exports.handler = async () => {
 
   snap.forEach(doc => {
     const v = doc.data();
-    if (v.recordatorioEnviado || !v.hora || !v.responsable) return;
+
+    if (v.recordatorioEnviado || !v.hora || !v.responsable) {
+      console.log(`[recordatorio-hora] SALTEADA doc=${doc.id} responsable=${v.responsable} hora=${v.hora} recordatorioEnviado=${v.recordatorioEnviado}`);
+      return;
+    }
 
     const [hh, mm] = v.hora.split(':').map(Number);
     const minutosVisita = hh * 60 + mm;
     const faltan = minutosVisita - minutosAhora;
 
+    console.log(`[recordatorio-hora] doc=${doc.id} responsable=${v.responsable} hora=${v.hora} faltan=${faltan}min`);
+
     // Ventana de 45 a 75 minutos antes, para cubrir bien la corrida de cada 15 min.
-    if (faltan < 45 || faltan > 75) return;
+    if (faltan < 45 || faltan > 75) {
+      console.log(`[recordatorio-hora] fuera de ventana (necesita estar entre 45 y 75) -> no se avisa todavía`);
+      return;
+    }
 
     avisos.push((async () => {
       const dispDoc = await db.collection('dispositivos').doc(v.responsable).get();
+      console.log(`[recordatorio-hora] dispositivo de "${v.responsable}" existe=${dispDoc.exists} tieneToken=${!!(dispDoc.exists && dispDoc.data().token)}`);
       if (dispDoc.exists && dispDoc.data().token) {
         try {
           await admin.messaging().send({
@@ -57,8 +70,9 @@ exports.handler = async () => {
             },
             webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
           });
+          console.log(`[recordatorio-hora] push enviado OK a ${v.responsable}`);
         } catch (err) {
-          console.warn(`No se pudo avisar a ${v.responsable}:`, err.message);
+          console.warn(`[recordatorio-hora] No se pudo avisar a ${v.responsable}:`, err.message);
         }
       }
       await doc.ref.update({ recordatorioEnviado: true });
@@ -66,5 +80,6 @@ exports.handler = async () => {
   });
 
   await Promise.all(avisos);
+  console.log(`[recordatorio-hora] avisosEnviados=${avisos.length}`);
   return { statusCode: 200, body: JSON.stringify({ ok: true, avisosEnviados: avisos.length }) };
 };
