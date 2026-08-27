@@ -225,8 +225,16 @@
           <input type="date" id="fecha" required>
         </div>
         <div>
-          <label for="hora">Hora</label>
-          <input type="time" id="hora" required>
+          <label for="hora-h">Hora (24hs)</label>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <select id="hora-h" required style="flex:1;">
+              <option value="" disabled selected>Hs</option>
+            </select>
+            <span style="font-weight:700; color:var(--texto-suave);">:</span>
+            <select id="hora-m" required style="flex:1;">
+              <option value="" disabled selected>Min</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -352,6 +360,32 @@
     { nombre: "Emi",   telefono: "5492214190571" },
     { nombre: "Mati",  telefono: "5492314485364" },
   ];
+
+  const selHoraH = document.getElementById("hora-h");
+  const selHoraM = document.getElementById("hora-m");
+  for(let h = 0; h < 24; h++){
+    const op = document.createElement("option");
+    op.value = String(h).padStart(2, "0");
+    op.textContent = String(h).padStart(2, "0");
+    selHoraH.appendChild(op);
+  }
+  ["00","10","20","30","40","50"].forEach(m => {
+    const op = document.createElement("option");
+    op.value = m;
+    op.textContent = m;
+    selHoraM.appendChild(op);
+  });
+
+  function leerHoraForm(){
+    if(!selHoraH.value || !selHoraM.value) return "";
+    return `${selHoraH.value}:${selHoraM.value}`;
+  }
+  function setearHoraForm(hora){
+    if(!hora){ selHoraH.value = ""; selHoraM.value = ""; return; }
+    const [h, m] = hora.split(":");
+    selHoraH.value = h;
+    selHoraM.value = m;
+  }
 
   const selResponsable = document.getElementById("responsable");
   EQUIPO.forEach(p => {
@@ -496,7 +530,7 @@
     idVisitaEditando = id;
     document.getElementById("direccion").value = v.direccion || "";
     document.getElementById("fecha").value = v.fecha || "";
-    document.getElementById("hora").value = v.hora || "";
+    setearHoraForm(v.hora || "");
     document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
     document.getElementById("telefono-interesado").value = v.telefonoInteresado || "";
     document.getElementById("responsable").value = v.responsable || "";
@@ -524,10 +558,12 @@
 
   document.getElementById("form-visita").addEventListener("submit", function(e){
     e.preventDefault();
+    const horaElegida = leerHoraForm();
+    if(!horaElegida){ alert("Elegí la hora y los minutos de la visita."); return; }
     const datosVisita = {
       direccion: document.getElementById("direccion").value.trim(),
       fecha: document.getElementById("fecha").value,
-      hora: document.getElementById("hora").value,
+      hora: horaElegida,
       nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
       telefonoInteresado: document.getElementById("telefono-interesado").value.trim(),
       responsable: document.getElementById("responsable").value
