@@ -137,6 +137,7 @@
   }
   .visita-acciones{
     display:flex;
+    flex-wrap:wrap;
     gap:8px;
     margin-top:12px;
   }
@@ -242,7 +243,12 @@
       <input type="text" id="nombre-interesado" placeholder="Quién va a visitar" required>
 
       <label for="telefono-interesado">Teléfono del interesado</label>
-      <input type="tel" id="telefono-interesado" placeholder="Ej: 2214567890">
+      <div style="display:flex; gap:6px; align-items:center;">
+        <span style="color:var(--texto-suave); font-weight:600;">+</span>
+        <input type="tel" id="telefono-interesado-prefijo" value="549" inputmode="numeric" title="Prefijo del país (549 = Argentina celular)" style="width:64px; text-align:center;">
+        <input type="tel" id="telefono-interesado" placeholder="Ej: 2214567890" inputmode="numeric" style="flex:1;">
+      </div>
+      <p class="aviso" style="margin-top:4px;">El "549" es el prefijo de Argentina para celulares — se puede cambiar si el interesado tiene un número de otro país.</p>
 
       <label for="responsable">Asignar a</label>
       <select id="responsable" required>
@@ -387,6 +393,26 @@
     selHoraM.value = m;
   }
 
+  const inputPrefijoInteresado = document.getElementById("telefono-interesado-prefijo");
+  const inputTelInteresado = document.getElementById("telefono-interesado");
+
+  function leerTelefonoInteresado(){
+    const prefijo = inputPrefijoInteresado.value.replace(/\D/g, "");
+    const soloNumeros = inputTelInteresado.value.replace(/\D/g, "");
+    return soloNumeros ? prefijo + soloNumeros : "";
+  }
+  function setearTelefonoInteresadoForm(numero){
+    if(!numero){ inputTelInteresado.value = ""; return; }
+    const prefijoActual = inputPrefijoInteresado.value.replace(/\D/g, "") || "549";
+    if(numero.startsWith(prefijoActual)){
+      inputTelInteresado.value = numero.slice(prefijoActual.length);
+    } else {
+      // No coincide con el prefijo por defecto (puede ser de otro país): mostramos el número completo tal cual.
+      inputPrefijoInteresado.value = "";
+      inputTelInteresado.value = numero;
+    }
+  }
+
   const selResponsable = document.getElementById("responsable");
   EQUIPO.forEach(p => {
     const op = document.createElement("option");
@@ -468,6 +494,11 @@
     return encodeURIComponent(linea);
   }
 
+  function armarMensajeWspInteresado(v){
+    const linea = `Hola ${v.nombreInteresado}! Te confirmamos la visita en ${v.direccion} el ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} a las ${v.hora}hs. ¡Nos vemos ahí!`;
+    return encodeURIComponent(linea);
+  }
+
   let visitasActuales = [];
   let idVisitaEditando = null;
 
@@ -490,6 +521,9 @@
       const persona = EQUIPO.find(p => p.nombre === v.responsable);
       const telResponsable = persona ? persona.telefono : "";
       const linkWsp = `https://wa.me/${telResponsable}?text=${armarMensajeWsp(v)}`;
+      const linkWspInteresado = v.telefonoInteresado
+        ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
+        : "";
 
       const div = document.createElement("div");
       div.className = "visita" + (v.confirmada ? " confirmada" : "");
@@ -503,7 +537,8 @@
         </div>
         <span class="tag-responsable">${v.confirmada ? "✅ " : ""}${v.responsable}</span>
         <div class="visita-acciones">
-          <button class="btn-wsp" onclick="window.open('${linkWsp}', '_blank')">Enviar por WhatsApp</button>
+          <button class="btn-wsp" onclick="window.open('${linkWsp}', '_blank')">A ${v.responsable}</button>
+          ${linkWspInteresado ? `<button class="btn-wsp" onclick="window.open('${linkWspInteresado}', '_blank')">Al interesado</button>` : ""}
           <button class="btn-confirmar ${v.confirmada ? 'hecho' : ''}" onclick="marcarConfirmada('${v.id}', ${!!v.confirmada})">
             ${v.confirmada ? "Confirmada" : "Marcar confirmada"}
           </button>
@@ -532,7 +567,7 @@
     document.getElementById("fecha").value = v.fecha || "";
     setearHoraForm(v.hora || "");
     document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
-    document.getElementById("telefono-interesado").value = v.telefonoInteresado || "";
+    setearTelefonoInteresadoForm(v.telefonoInteresado || "");
     document.getElementById("responsable").value = v.responsable || "";
 
     document.getElementById("titulo-form-visita").textContent = "Editar visita";
@@ -565,7 +600,7 @@
       fecha: document.getElementById("fecha").value,
       hora: horaElegida,
       nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
-      telefonoInteresado: document.getElementById("telefono-interesado").value.trim(),
+      telefonoInteresado: leerTelefonoInteresado(),
       responsable: document.getElementById("responsable").value
     };
 
