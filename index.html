@@ -538,7 +538,7 @@
   }
 
   function armarMensajeWspInteresado(v){
-    const linea = `Hola ${v.nombreInteresado}! Te confirmamos la visita en ${v.direccion} el ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} a las ${v.hora}hs. ¡Nos vemos ahí!`;
+    const linea = `Hola ${v.nombreInteresado}! Te confirmamos la visita en ${v.direccion} el ${diaSemana(v.fecha)} a las ${v.hora}hs. ¡Nos vemos ahí!`;
     return encodeURIComponent(linea);
   }
 
@@ -582,10 +582,11 @@
       const div = document.createElement("div");
       div.className = "visita" + (v.confirmada ? " confirmada" : "");
       div.style.borderLeftColor = color.borde;
+      div.style.background = color.bg;
       div.innerHTML = `
         <div class="visita-top">
           <div>
-            <span class="tag-responsable" style="background:${color.bg}; color:${color.texto}; border:1px solid ${color.borde};">${v.confirmada ? "✅ " : ""}${v.responsable}</span>
+            <span class="tag-responsable" style="background:#ffffff; color:${color.texto}; border:1px solid ${color.borde};">${v.confirmada ? "✅ " : ""}${v.responsable}</span>
             <div class="visita-direccion">${v.direccion}</div>
           </div>
           <div class="visita-cuando">${v.hora}hs</div>
