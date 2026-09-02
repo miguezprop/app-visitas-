@@ -102,12 +102,12 @@
   .visita{
     background:var(--tarjeta);
     border:1px solid var(--borde);
-    border-left:5px solid var(--azul-claro);
+    border-left:9px solid var(--azul-claro);
     border-radius:10px;
     padding:14px;
     margin-bottom:12px;
   }
-  .visita.confirmada{border-left-color:var(--verde);opacity:0.75;}
+  .visita.confirmada{opacity:0.75;}
   .visita-top{
     display:flex;
     justify-content:space-between;
@@ -133,7 +133,7 @@
     font-weight:600;
     padding:3px 9px;
     border-radius:20px;
-    margin-top:8px;
+    margin-bottom:5px;
   }
   .visita-acciones{
     display:flex;
@@ -296,6 +296,7 @@
     appId: "1:552690822086:web:fb2f5867f08b548dbba0c7"
   };
   // Clave VAPID de Cloud Messaging (Firebase → Configuración del proyecto → Cloud Messaging → Certificados push web)
+  // Mientras diga "PEGAR_VAPID_KEY_ACA", las notificaciones automáticas quedan desactivadas sin romper el resto de la app.
   const VAPID_KEY = "BIU9YV87m2qsrcu0BqU-xi1OXwlp35E38JXnBDcxvOWt3szOQw-TV6TaQgAUVIkZRFc7_DZ9BinCXzsEwBy9vm4";
 
   firebase.initializeApp(firebaseConfig);
@@ -551,139 +552,4 @@
 
     if(visitas.length === 0){
       cont.innerHTML = `<div class="vacio">Todavía no hay visitas cargadas.</div>`;
-      contador.textContent = "";
-      return;
-    }
-    contador.textContent = `${visitas.length} ${visitas.length===1 ? "visita":"visitas"}`;
-
-    let fechaAnterior = null;
-
-    visitas.forEach(v => {
-      if(v.fecha !== fechaAnterior){
-        fechaAnterior = v.fecha;
-        const encabezado = document.createElement("div");
-        encabezado.className = "separador-dia";
-        encabezado.textContent = etiquetaDia(v.fecha);
-        cont.appendChild(encabezado);
-      }
-
-      const persona = EQUIPO.find(p => p.nombre === v.responsable);
-      const telResponsable = persona ? persona.telefono : "";
-      const linkWsp = `https://wa.me/${telResponsable}?text=${armarMensajeWsp(v)}`;
-      const linkWspInteresado = v.telefonoInteresado
-        ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
-        : "";
-      const color = COLOR_RESPONSABLE[v.responsable] || COLOR_RESPONSABLE_DEFAULT;
-
-      const div = document.createElement("div");
-      div.className = "visita" + (v.confirmada ? " confirmada" : "");
-      div.style.borderLeftColor = color.borde;
-      div.innerHTML = `
-        <div class="visita-top">
-          <div class="visita-direccion">${v.direccion}</div>
-          <div class="visita-cuando">${v.hora}hs</div>
-        </div>
-        <div class="visita-datos">
-          👤 ${v.nombreInteresado}${v.telefonoInteresado ? " · 📞 " + v.telefonoInteresado : ""}
-        </div>
-        <span class="tag-responsable" style="background:${color.bg}; color:${color.texto}; border:1px solid ${color.borde};">${v.confirmada ? "✅ " : ""}${v.responsable}</span>
-        <div class="visita-acciones">
-          <button class="btn-wsp" onclick="window.open('${linkWsp}', '_blank')">A ${v.responsable}</button>
-          ${linkWspInteresado ? `<button class="btn-wsp" onclick="window.open('${linkWspInteresado}', '_blank')">Al interesado</button>` : ""}
-          <button class="btn-confirmar ${v.confirmada ? 'hecho' : ''}" onclick="marcarConfirmada('${v.id}', ${!!v.confirmada})">
-            ${v.confirmada ? "Confirmada" : "Marcar confirmada"}
-          </button>
-          <button class="btn-borrar" onclick="editarVisita('${v.id}')" style="color:var(--azul);background:#ebf4ff;">✎</button>
-          <button class="btn-borrar" onclick="borrarVisita('${v.id}')">✕</button>
-        </div>
-      `;
-      cont.appendChild(div);
-    });
-  }
-
-  function marcarConfirmada(id, estadoActual){
-    coleccionVisitas.doc(id).update({ confirmada: !estadoActual });
-  }
-
-  function borrarVisita(id){
-    if(!confirm("¿Borrar esta visita?")) return;
-    coleccionVisitas.doc(id).delete();
-  }
-
-  function editarVisita(id){
-    const v = visitasActuales.find(x => x.id === id);
-    if(!v) return;
-    idVisitaEditando = id;
-    document.getElementById("direccion").value = v.direccion || "";
-    document.getElementById("fecha").value = v.fecha || "";
-    setearHoraForm(v.hora || "");
-    document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
-    setearTelefonoInteresadoForm(v.telefonoInteresado || "");
-    document.getElementById("responsable").value = v.responsable || "";
-
-    document.getElementById("titulo-form-visita").textContent = "Editar visita";
-    document.getElementById("btn-guardar-visita").textContent = "Guardar cambios";
-    document.getElementById("btn-cancelar-edicion").style.display = "block";
-    document.getElementById("aviso-form-visita").textContent =
-      "Si cambiás el día o la hora, los recordatorios automáticos se vuelven a programar para el nuevo horario.";
-
-    document.getElementById("form-visita").scrollIntoView({ behavior: "smooth" });
-  }
-
-  function cancelarEdicion(){
-    idVisitaEditando = null;
-    document.getElementById("form-visita").reset();
-    document.getElementById("titulo-form-visita").textContent = "Cargar nueva visita";
-    document.getElementById("btn-guardar-visita").textContent = "Guardar visita";
-    document.getElementById("btn-cancelar-edicion").style.display = "none";
-    document.getElementById("aviso-form-visita").textContent =
-      "Al guardar se arma automáticamente el mensaje de WhatsApp para el responsable — solo hay que tocar \"Enviar por WhatsApp\".";
-  }
-
-  document.getElementById("btn-cancelar-edicion").addEventListener("click", cancelarEdicion);
-
-  document.getElementById("form-visita").addEventListener("submit", function(e){
-    e.preventDefault();
-    const horaElegida = leerHoraForm();
-    if(!horaElegida){ alert("Elegí la hora y los minutos de la visita."); return; }
-    const datosVisita = {
-      direccion: document.getElementById("direccion").value.trim(),
-      fecha: document.getElementById("fecha").value,
-      hora: horaElegida,
-      nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
-      telefonoInteresado: leerTelefonoInteresado(),
-      responsable: document.getElementById("responsable").value
-    };
-
-    if(idVisitaEditando){
-      // Al editar, reseteamos los flags de recordatorio para que los avisos automáticos
-      // se vuelvan a evaluar con el día/hora nuevos (por si cambiaron).
-      coleccionVisitas.doc(idVisitaEditando).update({
-        ...datosVisita,
-        recordatorioEnviado: false,
-        recordatorio2hEnviado: false
-      }).then(() => {
-        cancelarEdicion();
-      }).catch(err => alert("No se pudo guardar los cambios. Revisá la conexión.\n" + err.message));
-      return;
-    }
-
-    const nuevaVisita = {
-      ...datosVisita,
-      confirmada: false,
-      creado: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    coleccionVisitas.add(nuevaVisita).then(() => {
-      this.reset();
-      avisarPorPush(
-        nuevaVisita.responsable,
-        "Nueva visita asignada 📍",
-        `${nuevaVisita.direccion} — ${diaSemana(nuevaVisita.fecha)} ${formatearFecha(nuevaVisita.fecha)} ${nuevaVisita.hora}hs (${nuevaVisita.nombreInteresado})`
-      );
-    }).catch(err => alert("No se pudo guardar la visita. Revisá la conexión.\n" + err.message));
-  });
-
-</script>
-
-</body>
-</html>
+      contador.textContent
