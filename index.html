@@ -162,6 +162,17 @@
     padding:9px 12px;
     font-size:0.82rem;
   }
+  .separador-dia{
+    font-size:0.78rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    color:var(--texto-suave);
+    margin:18px 0 8px;
+    padding-bottom:4px;
+    border-bottom:1px solid var(--borde);
+  }
+  .separador-dia:first-child{margin-top:0;}
   .vacio{
     text-align:center;
     color:var(--texto-suave);
@@ -367,6 +378,17 @@
     { nombre: "Mati",  telefono: "5492314485364" },
   ];
 
+  // Un color por persona, para diferenciar de un vistazo a quién le toca cada visita.
+  const COLOR_RESPONSABLE = {
+    Juan:  { bg: "#dbeafe", texto: "#1d4ed8", borde: "#93c5fd" },   // azul
+    Alejo: { bg: "#fee2e2", texto: "#b91c1c", borde: "#fca5a5" },   // rojo
+    Mati:  { bg: "#dcfce7", texto: "#15803d", borde: "#86efac" },   // verde
+    Cele:  { bg: "#cffafe", texto: "#0e7490", borde: "#67e8f9" },   // celeste
+    Emi:   { bg: "#ffffff", texto: "#1a202c", borde: "#a0aec0" },   // blanco
+    Nico:  { bg: "#ccfbf1", texto: "#0f766e", borde: "#5eead4" },   // turquesa
+  };
+  const COLOR_RESPONSABLE_DEFAULT = { bg: "#ebf4ff", texto: "#1e3a5f", borde: "#bee3f8" };
+
   const selHoraH = document.getElementById("hora-h");
   const selHoraM = document.getElementById("hora-m");
   for(let h = 0; h < 24; h++){
@@ -484,6 +506,23 @@
     const dt = new Date(f + "T00:00:00");
     return dias[dt.getDay()];
   }
+  function fechaHoyStr(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+  function sumarDias(fechaStr, dias){
+    const [y,m,d] = fechaStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    dt.setDate(dt.getDate() + dias);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  }
+  function etiquetaDia(f){
+    const hoy = fechaHoyStr();
+    if(f === hoy) return "Hoy";
+    if(f === sumarDias(hoy, 1)) return "Mañana";
+    const dia = diaSemana(f);
+    return dia.charAt(0).toUpperCase() + dia.slice(1) + " " + formatearFecha(f);
+  }
 
   function armarMensajeWsp(v){
     const linea = `Nueva visita asignada 📍\n` +
@@ -517,25 +556,37 @@
     }
     contador.textContent = `${visitas.length} ${visitas.length===1 ? "visita":"visitas"}`;
 
+    let fechaAnterior = null;
+
     visitas.forEach(v => {
+      if(v.fecha !== fechaAnterior){
+        fechaAnterior = v.fecha;
+        const encabezado = document.createElement("div");
+        encabezado.className = "separador-dia";
+        encabezado.textContent = etiquetaDia(v.fecha);
+        cont.appendChild(encabezado);
+      }
+
       const persona = EQUIPO.find(p => p.nombre === v.responsable);
       const telResponsable = persona ? persona.telefono : "";
       const linkWsp = `https://wa.me/${telResponsable}?text=${armarMensajeWsp(v)}`;
       const linkWspInteresado = v.telefonoInteresado
         ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
         : "";
+      const color = COLOR_RESPONSABLE[v.responsable] || COLOR_RESPONSABLE_DEFAULT;
 
       const div = document.createElement("div");
       div.className = "visita" + (v.confirmada ? " confirmada" : "");
+      div.style.borderLeftColor = color.borde;
       div.innerHTML = `
         <div class="visita-top">
           <div class="visita-direccion">${v.direccion}</div>
-          <div class="visita-cuando">${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} · ${v.hora}hs</div>
+          <div class="visita-cuando">${v.hora}hs</div>
         </div>
         <div class="visita-datos">
           👤 ${v.nombreInteresado}${v.telefonoInteresado ? " · 📞 " + v.telefonoInteresado : ""}
         </div>
-        <span class="tag-responsable">${v.confirmada ? "✅ " : ""}${v.responsable}</span>
+        <span class="tag-responsable" style="background:${color.bg}; color:${color.texto}; border:1px solid ${color.borde};">${v.confirmada ? "✅ " : ""}${v.responsable}</span>
         <div class="visita-acciones">
           <button class="btn-wsp" onclick="window.open('${linkWsp}', '_blank')">A ${v.responsable}</button>
           ${linkWspInteresado ? `<button class="btn-wsp" onclick="window.open('${linkWspInteresado}', '_blank')">Al interesado</button>` : ""}
