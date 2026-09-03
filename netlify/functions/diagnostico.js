@@ -1,8 +1,11 @@
-// Función de diagnóstico: NO se ejecuta sola, se llama a mano abriendo la URL
-// con un nombre, por ejemplo:
+// Función de diagnóstico: NO se ejecuta sola, se llama a mano abriendo la URL.
+//
+// Ver los dispositivos registrados de una persona:
 // https://profound-tanuki-709d8a.netlify.app/.netlify/functions/diagnostico?nombre=Alejo
-// Sirve para ver, sin entrar a Firebase, si esa persona tiene "dispositivos"
-// (celulares) registrados para recibir notificaciones, y hace cuánto se actualizaron.
+//
+// Además, mandarle un push de PRUEBA real a esos dispositivos y ver si Firebase
+// lo acepta o lo rechaza (y por qué) — agregando &probar=true:
+// https://profound-tanuki-709d8a.netlify.app/.netlify/functions/diagnostico?nombre=Alejo&probar=true
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
@@ -12,7 +15,10 @@ if (!admin.apps.length) {
 }
 
 exports.handler = async (event) => {
-  const nombre = (event.queryStringParameters && event.queryStringParameters.nombre) || '';
+  const params = event.queryStringParameters || {};
+  const nombre = params.nombre || '';
+  const probar = params.probar === 'true';
+
   if (!nombre) {
     return {
       statusCode: 400,
@@ -23,14 +29,34 @@ exports.handler = async (event) => {
   const db = admin.firestore();
   const snap = await db.collection('dispositivos').where('nombre', '==', nombre).get();
 
-  const dispositivos = snap.docs.map(doc => {
+  const dispositivos = [];
+  for (const doc of snap.docs) {
     const d = doc.data();
-    return {
+    const info = {
       idDispositivo: doc.id,
       tieneToken: !!d.token,
       ultimaActualizacion: d.actualizado ? d.actualizado.toDate().toISOString() : null
     };
-  });
+
+    if (probar && d.token) {
+      try {
+        await admin.messaging().send({
+          token: d.token,
+          notification: {
+            title: 'Prueba de diagnóstico 🔧',
+            body: 'Si te llegó esto, tu celular está recibiendo notificaciones bien.'
+          },
+          webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
+        });
+        info.resultadoPrueba = 'OK — Firebase aceptó el envío';
+      } catch (err) {
+        info.resultadoPrueba = 'ERROR: ' + err.message;
+        info.codigoError = err.code || null;
+      }
+    }
+
+    dispositivos.push(info);
+  }
 
   return {
     statusCode: 200,
