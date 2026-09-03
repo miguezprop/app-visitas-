@@ -70,6 +70,7 @@ exports.handler = async () => {
               title: 'En 1 hora tenés visita ⏰',
               body: `${v.direccion} — ${v.hora}hs (${v.nombreInteresado || 'interesado'})`
             },
+            data: { idDispositivo: dispDoc.id },
             webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
           });
           console.log(`[recordatorio-hora] push enviado OK a ${v.responsable} (dispositivo ${dispDoc.id})`);
