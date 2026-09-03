@@ -45,6 +45,7 @@ exports.handler = async () => {
             title: 'Buen día ☀️',
             body: `Hoy tenés ${cantidad} visita${cantidad === 1 ? '' : 's'} agendada${cantidad === 1 ? '' : 's'}.`
           },
+          data: { idDispositivo: dispDoc.id },
           webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
         });
       } catch (err) {
