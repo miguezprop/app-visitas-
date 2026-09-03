@@ -12,7 +12,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { token, title, body } = JSON.parse(event.body || '{}');
+    const { token, title, body, idDispositivo } = JSON.parse(event.body || '{}');
     if (!token || !title || !body) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos (token, title o body)' }) };
     }
@@ -20,6 +20,7 @@ exports.handler = async (event) => {
     await admin.messaging().send({
       token,
       notification: { title, body },
+      data: idDispositivo ? { idDispositivo } : {},
       webpush: {
         notification: { icon: '/icono.png' },
         fcmOptions: { link: '/' }
