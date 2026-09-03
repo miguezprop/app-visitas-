@@ -279,6 +279,14 @@
     </div>
     <div id="lista-visitas"></div>
   </div>
+
+  <div class="card">
+    <div class="lista-titulo">
+      <h2>📶 Notificaciones del equipo</h2>
+    </div>
+    <p class="aviso" style="margin-top:0;">Cada vez que a alguien le llega un aviso, su celular lo confirma solo. Si alguien deja de recibir avisos (por ejemplo, si dejó de tener la app instalada bien), acá se va a notar antes de que se pierda una visita.</p>
+    <div id="lista-estado-notificaciones"></div>
+  </div>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -338,6 +346,7 @@
     }
     const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY);
     if(quienSoy) activarNotificaciones(quienSoy);
+    cargarEstadoNotificaciones();
   }
 
   auth.onAuthStateChanged(user => {
@@ -495,9 +504,62 @@
         fetch("/.netlify/functions/enviar-notificacion", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: token, title: titulo, body: cuerpo })
+          body: JSON.stringify({ token: token, title: titulo, body: cuerpo, idDispositivo: doc.id })
         }).catch(() => {}); // si falla, no pasa nada — siempre queda el botón de WhatsApp como respaldo
       });
+    });
+  }
+
+  // Cada vez que a un celular le llega un aviso de verdad, el service worker confirma
+  // solo que lo recibió (ver firebase-messaging-sw.js). Acá juntamos esa última
+  // confirmación por persona (el dispositivo más reciente de cada uno) para mostrar
+  // un estado simple: "todo bien" o "hace mucho que no le llega nada".
+  function formatearHaceCuanto(fecha){
+    const ms = Date.now() - fecha.getTime();
+    const horas = ms / (1000 * 60 * 60);
+    if(horas < 1) return "hace instantes";
+    if(horas < 24) return `hace ${Math.round(horas)}h`;
+    const dias = Math.round(horas / 24);
+    return `hace ${dias} día${dias === 1 ? "" : "s"}`;
+  }
+
+  function cargarEstadoNotificaciones(){
+    const cont = document.getElementById("lista-estado-notificaciones");
+    if(!cont) return;
+    coleccionDispositivos.get().then(snap => {
+      const porPersona = {};
+      snap.forEach(doc => {
+        const d = doc.data();
+        if(!d.nombre) return;
+        const confirmacion = d.ultimaConfirmacionRecibida || null;
+        const actual = porPersona[d.nombre];
+        if(!actual || (confirmacion && (!actual.confirmacion || confirmacion.toMillis() > actual.confirmacion.toMillis()))){
+          porPersona[d.nombre] = { confirmacion, tieneDispositivo: true };
+        }
+      });
+
+      cont.innerHTML = EQUIPO.map(p => {
+        const estado = porPersona[p.nombre];
+        let texto, color;
+        if(!estado){
+          texto = "sin celular activado todavía";
+          color = "#a0aec0";
+        } else if(!estado.confirmacion){
+          texto = "activado, esperando el primer aviso";
+          color = "#a0aec0";
+        } else {
+          const fecha = estado.confirmacion.toDate();
+          const horas = (Date.now() - fecha.getTime()) / (1000 * 60 * 60);
+          texto = `último aviso recibido ${formatearHaceCuanto(fecha)}`;
+          color = horas <= 72 ? "#22c55e" : "#dc2626";
+        }
+        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--borde); font-size:0.85rem;">
+          <span style="font-weight:600;">${p.nombre}</span>
+          <span style="color:${color};">● ${texto}</span>
+        </div>`;
+      }).join("");
+    }).catch(() => {
+      cont.innerHTML = `<div class="aviso">No se pudo cargar el estado.</div>`;
     });
   }
 
@@ -538,7 +600,7 @@
   }
 
   function armarMensajeWspInteresado(v){
-    const linea = `Hola ${v.nombreInteresado}! Te confirmamos la visita en ${v.direccion} el ${diaSemana(v.fecha)} a las ${v.hora}hs. ¡Nos vemos ahí!`;
+    const linea = `Hola ${v.nombreInteresado}! Te confirmamos la visita en ${v.direccion} el ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} a las ${v.hora}hs. ¡Nos vemos ahí!`;
     return encodeURIComponent(linea);
   }
 
