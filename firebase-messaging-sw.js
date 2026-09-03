@@ -19,4 +19,16 @@ messaging.onBackgroundMessage(function (payload) {
     body: body,
     icon: "/icono.png"
   });
+
+  // Confirmamos solos (sin que la persona tenga que hacer nada) que este aviso
+  // llegó de verdad hasta el celular. Así, si alguien deja de recibir avisos,
+  // se nota en la app en vez de descubrirse cuando ya se perdió una visita.
+  const idDispositivo = payload.data && payload.data.idDispositivo;
+  if (idDispositivo) {
+    fetch("/.netlify/functions/confirmar-recibido", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idDispositivo: idDispositivo })
+    }).catch(function () {});
+  }
 });
