@@ -107,7 +107,7 @@
     padding:14px;
     margin-bottom:12px;
   }
-  .visita.confirmada{opacity:0.75;}
+  .visita.pasada{opacity:0.7;}
   .visita-top{
     display:flex;
     justify-content:space-between;
@@ -148,14 +148,13 @@
     padding:9px;
     font-size:0.82rem;
   }
-  .btn-confirmar{
+  .btn-reprogramar{
     flex:1;
-    background:var(--verde);
+    background:var(--azul);
     color:#fff;
     padding:9px;
     font-size:0.82rem;
   }
-  .btn-confirmar.hecho{background:#c6f6d5;color:#276749;}
   .btn-borrar{
     background:#fff5f5;
     color:#c53030;
@@ -173,6 +172,15 @@
     border-bottom:1px solid var(--borde);
   }
   .separador-dia:first-child{margin-top:0;}
+  .btn-toggle-pasadas{
+    width:100%;
+    background:#edf2f7;
+    color:var(--texto-suave);
+    padding:11px 14px;
+    margin-top:14px;
+    text-align:left;
+    font-size:0.85rem;
+  }
   .vacio{
     text-align:center;
     color:var(--texto-suave);
@@ -274,7 +282,7 @@
 
   <div class="card">
     <div class="lista-titulo">
-      <h2>Visitas cargadas</h2>
+      <h2>Próximas visitas</h2>
       <span class="contador" id="contador"></span>
     </div>
     <div id="lista-visitas"></div>
@@ -586,6 +594,7 @@
     const hoy = fechaHoyStr();
     if(f === hoy) return "Hoy";
     if(f === sumarDias(hoy, 1)) return "Mañana";
+    if(f === sumarDias(hoy, -1)) return "Ayer";
     const dia = diaSemana(f);
     return dia.charAt(0).toUpperCase() + dia.slice(1) + " " + formatearFecha(f);
   }
@@ -607,72 +616,122 @@
   let visitasActuales = [];
   let idVisitaEditando = null;
 
+  // Las visitas de días anteriores a hoy pasan solas a "Pasadas" (al final, cerrada).
+  // Solo se muestran las de los últimos DIAS_PASADAS días; las más viejas siguen
+  // guardadas en la base, simplemente no se muestran.
+  const DIAS_PASADAS = 30;
+  let pasadasAbiertas = false;
+
+  function crearTarjeta(v, esPasada){
+    const persona = EQUIPO.find(p => p.nombre === v.responsable);
+    const telResponsable = persona ? persona.telefono : "";
+    const linkWsp = `https://wa.me/${telResponsable}?text=${armarMensajeWsp(v)}`;
+    const linkWspInteresado = v.telefonoInteresado
+      ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
+      : "";
+    const color = COLOR_RESPONSABLE[v.responsable] || COLOR_RESPONSABLE_DEFAULT;
+
+    const acciones = esPasada
+      ? `<button class="btn-reprogramar" onclick="reprogramarVisita('${v.id}')">↻ Reprogramar</button>
+         <button class="btn-borrar" onclick="borrarVisita('${v.id}')">✕</button>`
+      : `<button class="btn-wsp" onclick="window.open('${linkWsp}', '_blank')">A ${v.responsable}</button>
+         ${linkWspInteresado ? `<button class="btn-wsp" onclick="window.open('${linkWspInteresado}', '_blank')">Al interesado</button>` : ""}
+         <button class="btn-borrar" onclick="editarVisita('${v.id}')" style="color:var(--azul);background:#ebf4ff;">✎</button>
+         <button class="btn-borrar" onclick="borrarVisita('${v.id}')">✕</button>`;
+
+    const div = document.createElement("div");
+    div.className = "visita" + (esPasada ? " pasada" : "");
+    div.style.borderLeftColor = color.borde;
+    div.style.background = color.bg;
+    div.innerHTML = `
+      <div class="visita-top">
+        <div>
+          <span class="tag-responsable" style="background:#ffffff; color:${color.texto}; border:1px solid ${color.borde};">${v.responsable}</span>
+          <div class="visita-direccion">${v.direccion}</div>
+        </div>
+        <div class="visita-cuando">${v.hora}hs</div>
+      </div>
+      <div class="visita-datos">
+        👤 ${v.nombreInteresado}${v.telefonoInteresado ? " · 📞 " + v.telefonoInteresado : ""}
+      </div>
+      <div class="visita-acciones">${acciones}</div>
+    `;
+    return div;
+  }
+
+  function agregarConSeparadores(cont, lista, esPasada){
+    let fechaAnterior = null;
+    lista.forEach(v => {
+      if(v.fecha !== fechaAnterior){
+        fechaAnterior = v.fecha;
+        const encabezado = document.createElement("div");
+        encabezado.className = "separador-dia";
+        encabezado.textContent = v.fecha ? etiquetaDia(v.fecha) : "Sin fecha";
+        cont.appendChild(encabezado);
+      }
+      cont.appendChild(crearTarjeta(v, esPasada));
+    });
+  }
+
   function render(visitas){
-    visitas = visitas.slice().sort((a,b) => (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
     visitasActuales = visitas;
+
+    const hoy = fechaHoyStr();
+    const limitePasadas = sumarDias(hoy, -DIAS_PASADAS);
+    const orden = (a,b) => ((a.fecha||"")+(a.hora||"")).localeCompare((b.fecha||"")+(b.hora||""));
+
+    const proximas = visitas.filter(v => !v.fecha || v.fecha >= hoy).sort(orden);
+    // Pasadas: la más reciente primero (ayer arriba), que es la que más probablemente haya que reprogramar
+    const pasadas = visitas
+      .filter(v => v.fecha && v.fecha < hoy && v.fecha >= limitePasadas)
+      .sort((a,b) => orden(b,a));
 
     const cont = document.getElementById("lista-visitas");
     const contador = document.getElementById("contador");
     cont.innerHTML = "";
 
-    if(visitas.length === 0){
-      cont.innerHTML = `<div class="vacio">Todavía no hay visitas cargadas.</div>`;
-      contador.textContent = "";
-      return;
+    contador.textContent = proximas.length
+      ? `${proximas.length} ${proximas.length===1 ? "visita":"visitas"}`
+      : "";
+
+    if(proximas.length === 0){
+      const vacio = document.createElement("div");
+      vacio.className = "vacio";
+      vacio.textContent = "No hay visitas próximas.";
+      cont.appendChild(vacio);
+    } else {
+      agregarConSeparadores(cont, proximas, false);
     }
-    contador.textContent = `${visitas.length} ${visitas.length===1 ? "visita":"visitas"}`;
 
-    let fechaAnterior = null;
+    if(pasadas.length > 0){
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "btn-toggle-pasadas";
+      toggle.textContent = `${pasadasAbiertas ? "▾" : "▸"} Pasadas (${pasadas.length}) — últimos ${DIAS_PASADAS} días`;
+      toggle.addEventListener("click", () => {
+        pasadasAbiertas = !pasadasAbiertas;
+        render(visitasActuales);
+      });
+      cont.appendChild(toggle);
 
-    visitas.forEach(v => {
-      if(v.fecha !== fechaAnterior){
-        fechaAnterior = v.fecha;
-        const encabezado = document.createElement("div");
-        encabezado.className = "separador-dia";
-        encabezado.textContent = etiquetaDia(v.fecha);
-        cont.appendChild(encabezado);
+      if(pasadasAbiertas){
+        const contPasadas = document.createElement("div");
+        contPasadas.style.marginTop = "12px";
+        agregarConSeparadores(contPasadas, pasadas, true);
+        cont.appendChild(contPasadas);
       }
-
-      const persona = EQUIPO.find(p => p.nombre === v.responsable);
-      const telResponsable = persona ? persona.telefono : "";
-      const linkWsp = `https://wa.me/${telResponsable}?text=${armarMensajeWsp(v)}`;
-      const linkWspInteresado = v.telefonoInteresado
-        ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
-        : "";
-      const color = COLOR_RESPONSABLE[v.responsable] || COLOR_RESPONSABLE_DEFAULT;
-
-      const div = document.createElement("div");
-      div.className = "visita" + (v.confirmada ? " confirmada" : "");
-      div.style.borderLeftColor = color.borde;
-      div.style.background = color.bg;
-      div.innerHTML = `
-        <div class="visita-top">
-          <div>
-            <span class="tag-responsable" style="background:#ffffff; color:${color.texto}; border:1px solid ${color.borde};">${v.confirmada ? "✅ " : ""}${v.responsable}</span>
-            <div class="visita-direccion">${v.direccion}</div>
-          </div>
-          <div class="visita-cuando">${v.hora}hs</div>
-        </div>
-        <div class="visita-datos">
-          👤 ${v.nombreInteresado}${v.telefonoInteresado ? " · 📞 " + v.telefonoInteresado : ""}
-        </div>
-        <div class="visita-acciones">
-          <button class="btn-wsp" onclick="window.open('${linkWsp}', '_blank')">A ${v.responsable}</button>
-          ${linkWspInteresado ? `<button class="btn-wsp" onclick="window.open('${linkWspInteresado}', '_blank')">Al interesado</button>` : ""}
-          <button class="btn-confirmar ${v.confirmada ? 'hecho' : ''}" onclick="marcarConfirmada('${v.id}', ${!!v.confirmada})">
-            ${v.confirmada ? "Confirmada" : "Marcar confirmada"}
-          </button>
-          <button class="btn-borrar" onclick="editarVisita('${v.id}')" style="color:var(--azul);background:#ebf4ff;">✎</button>
-          <button class="btn-borrar" onclick="borrarVisita('${v.id}')">✕</button>
-        </div>
-      `;
-      cont.appendChild(div);
-    });
+    }
   }
 
-  function marcarConfirmada(id, estadoActual){
-    coleccionVisitas.doc(id).update({ confirmada: !estadoActual });
-  }
+  // Si la app queda abierta de un día para el otro, se reacomoda sola al cambiar el día.
+  let ultimoDiaRender = fechaHoyStr();
+  setInterval(() => {
+    const hoy = fechaHoyStr();
+    if(hoy !== ultimoDiaRender){
+      ultimoDiaRender = hoy;
+      render(visitasActuales);
+    }
+  }, 5 * 60 * 1000);
 
   function borrarVisita(id){
     if(!confirm("¿Borrar esta visita?")) return;
@@ -697,6 +756,17 @@
       "Si cambiás el día o la hora, los recordatorios automáticos se vuelven a programar para el nuevo horario.";
 
     document.getElementById("form-visita").scrollIntoView({ behavior: "smooth" });
+  }
+
+  // Reprogramar = editar, pero con día y hora vacíos para obligar a elegir los nuevos.
+  function reprogramarVisita(id){
+    editarVisita(id);
+    document.getElementById("fecha").value = "";
+    setearHoraForm("");
+    document.getElementById("titulo-form-visita").textContent = "Reprogramar visita";
+    document.getElementById("btn-guardar-visita").textContent = "Guardar nueva fecha";
+    document.getElementById("aviso-form-visita").textContent =
+      "Elegí el nuevo día y hora. La visita vuelve a \"Próximas\" y los recordatorios automáticos se reprograman solos.";
   }
 
   function cancelarEdicion(){
@@ -739,7 +809,6 @@
 
     const nuevaVisita = {
       ...datosVisita,
-      confirmada: false,
       creado: firebase.firestore.FieldValue.serverTimestamp()
     };
     coleccionVisitas.add(nuevaVisita).then(() => {
