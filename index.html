@@ -56,15 +56,17 @@
     margin:12px 0 4px;
   }
   label:first-of-type{margin-top:0;}
-  input, select{
+  input, select, textarea{
     width:100%;
     padding:10px 12px;
     border:1px solid var(--borde);
     border-radius:8px;
     font-size:0.95rem;
+    font-family:inherit;
     background:#fff;
     color:var(--texto);
   }
+  textarea{resize:vertical;min-height:60px;}
   .fila-doble{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -85,12 +87,29 @@
     margin-top:16px;
   }
   .btn-primario:active{background:var(--azul-claro);}
+  .btn-nueva{
+    width:100%;
+    background:var(--azul);
+    color:#fff;
+    padding:14px;
+    font-size:1rem;
+    margin-bottom:18px;
+  }
   .aviso{
     font-size:0.78rem;
     color:var(--texto-suave);
     margin-top:8px;
     line-height:1.4;
   }
+  .barra-sesion{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:0.8rem;
+    color:var(--texto-suave);
+    margin-bottom:12px;
+  }
+  .barra-sesion a{color:var(--texto-suave);}
   .lista-titulo{
     display:flex;
     justify-content:space-between;
@@ -99,6 +118,15 @@
   }
   .lista-titulo h2{margin:0;}
   .contador{font-size:0.8rem;color:var(--texto-suave);}
+  .filtros{display:flex;gap:6px;margin-bottom:14px;}
+  .chip{
+    padding:7px 14px;
+    border-radius:20px;
+    background:#edf2f7;
+    color:var(--texto-suave);
+    font-size:0.82rem;
+  }
+  .chip.activo{background:var(--azul);color:#fff;}
   .visita{
     background:var(--tarjeta);
     border:1px solid var(--borde);
@@ -114,7 +142,8 @@
     align-items:flex-start;
     gap:10px;
   }
-  .visita-direccion{font-weight:700;font-size:0.98rem;}
+  .visita-direccion{font-weight:700;font-size:0.98rem;color:var(--texto);text-decoration:none;}
+  .visita-direccion:hover{text-decoration:underline;}
   .visita-cuando{
     font-size:0.82rem;
     color:var(--texto-suave);
@@ -124,6 +153,16 @@
     font-size:0.88rem;
     color:var(--texto);
     margin-top:6px;
+  }
+  .visita-datos a{color:inherit;}
+  .visita-notas{
+    font-size:0.84rem;
+    color:var(--texto);
+    background:rgba(255,255,255,0.65);
+    border-radius:6px;
+    padding:6px 9px;
+    margin-top:8px;
+    white-space:pre-wrap;
   }
   .tag-responsable{
     display:inline-block;
@@ -143,6 +182,11 @@
   }
   .btn-wsp{
     flex:1;
+    display:inline-block;
+    text-align:center;
+    text-decoration:none;
+    border-radius:8px;
+    font-weight:600;
     background:#e6fffa;
     color:#065f46;
     padding:9px;
@@ -153,6 +197,12 @@
     background:var(--azul);
     color:#fff;
     padding:9px;
+    font-size:0.82rem;
+  }
+  .btn-editar{
+    background:#ebf4ff;
+    color:var(--azul);
+    padding:9px 12px;
     font-size:0.82rem;
   }
   .btn-borrar{
@@ -187,16 +237,20 @@
     font-size:0.88rem;
     padding:24px 0;
   }
-  .banner-demo{
-    background:#fffaf0;
-    border:1px solid #fbd38d;
-    color:#7b341e;
-    font-size:0.78rem;
-    padding:10px 14px;
-    border-radius:8px;
-    margin-bottom:16px;
-    line-height:1.4;
+  details.card summary{
+    cursor:pointer;
+    font-weight:600;
+    color:var(--azul);
+    font-size:0.95rem;
+    list-style:none;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
   }
+  details.card summary::-webkit-details-marker{display:none;}
+  details.card summary::before{content:"▸ ";}
+  details.card[open] summary::before{content:"▾ ";}
+  details.card summary span.resumen{font-size:0.8rem;font-weight:600;margin-left:auto;}
 </style>
 </head>
 <body>
@@ -229,11 +283,14 @@
 </main>
 
 <main id="app-contenido" style="display:none;">
-  <div class="banner-demo">
-    🔒 Acceso protegido con usuario y contraseña compartidos del equipo. <a href="#" id="btn-salir" style="color:inherit;">Cerrar sesión</a>
+  <div class="barra-sesion">
+    <span>Hola, <b id="quien-soy-label"></b> 👋</span>
+    <a href="#" id="btn-salir">Cerrar sesión</a>
   </div>
 
-  <div class="card">
+  <button type="button" class="btn-nueva" id="btn-nueva-visita">+ Nueva visita</button>
+
+  <div class="card" id="card-form" style="display:none;">
     <h2 id="titulo-form-visita">Cargar nueva visita</h2>
     <form id="form-visita">
       <label for="direccion">Dirección</label>
@@ -267,16 +324,19 @@
         <input type="tel" id="telefono-interesado-prefijo" value="549" inputmode="numeric" title="Prefijo del país (549 = Argentina celular)" style="width:64px; text-align:center;">
         <input type="tel" id="telefono-interesado" placeholder="Ej: 2214567890" inputmode="numeric" style="flex:1;">
       </div>
-      <p class="aviso" style="margin-top:4px;">El "549" es el prefijo de Argentina para celulares — se puede cambiar si el interesado tiene un número de otro país.</p>
+      <p class="aviso" style="margin-top:4px;">"549" = celular de Argentina. Cambialo solo si el número es de otro país.</p>
 
       <label for="responsable">Asignar a</label>
       <select id="responsable" required>
         <option value="" disabled selected>Elegir responsable</option>
       </select>
 
+      <label for="notas">Notas (opcional)</label>
+      <textarea id="notas" placeholder="Ej: las llaves las tiene el portero · es venta · viene con la pareja"></textarea>
+
       <button type="submit" class="btn-primario" id="btn-guardar-visita">Guardar visita</button>
-      <button type="button" class="btn-primario" id="btn-cancelar-edicion" style="display:none; background:#a0aec0; margin-top:8px;">Cancelar edición</button>
-      <p class="aviso" id="aviso-form-visita">Al guardar se arma automáticamente el mensaje de WhatsApp para el responsable — solo hay que tocar "Enviar por WhatsApp".</p>
+      <button type="button" class="btn-primario" id="btn-cancelar-edicion" style="background:#a0aec0; margin-top:8px;">Cancelar</button>
+      <p class="aviso" id="aviso-form-visita">Al guardar, al responsable le llega la notificación al celu.</p>
     </form>
   </div>
 
@@ -285,16 +345,18 @@
       <h2>Próximas visitas</h2>
       <span class="contador" id="contador"></span>
     </div>
+    <div class="filtros">
+      <button type="button" class="chip" data-filtro="todas">Todas</button>
+      <button type="button" class="chip" data-filtro="mias" id="chip-mias">Mis visitas</button>
+    </div>
     <div id="lista-visitas"></div>
   </div>
 
-  <div class="card">
-    <div class="lista-titulo">
-      <h2>📶 Notificaciones del equipo</h2>
-    </div>
-    <p class="aviso" style="margin-top:0;">Cada vez que a alguien le llega un aviso, su celular lo confirma solo. Si alguien deja de recibir avisos (por ejemplo, si dejó de tener la app instalada bien), acá se va a notar antes de que se pierda una visita.</p>
+  <details class="card" id="panel-notificaciones">
+    <summary>📶 Notificaciones del equipo <span class="resumen" id="resumen-notificaciones"></span></summary>
+    <p class="aviso">Cada vez que a alguien le llega un aviso, su celular lo confirma solo. Si alguien queda en rojo, es que hace días que no le llega nada (por ejemplo, si sacó la app de la pantalla de inicio) — este panel se abre solo cuando pasa eso.</p>
     <div id="lista-estado-notificaciones"></div>
-  </div>
+  </details>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -323,6 +385,15 @@
 
   const CLAVE_QUIEN_SOY = "visitas_quien_soy";
   const CLAVE_DEVICE_ID = "visitas_device_id";
+  const CLAVE_FILTRO = "visitas_filtro";
+
+  // Escapa texto cargado por el usuario antes de meterlo en el HTML,
+  // para que apóstrofes, comillas o "<" en nombres/direcciones no rompan nada.
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
+      "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+    })[c]);
+  }
 
   function obtenerDeviceId(){
     let id = localStorage.getItem(CLAVE_DEVICE_ID);
@@ -343,16 +414,19 @@
 
   function entrarAlApp(){
     mostrarPantalla("app-contenido");
+    const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY);
+    document.getElementById("quien-soy-label").textContent = quienSoy || "";
+    document.getElementById("chip-mias").textContent = quienSoy ? `Mis visitas (${quienSoy})` : "Mis visitas";
+    actualizarChips();
     if(!dejarDeEscuchar){
       dejarDeEscuchar = coleccionVisitas.onSnapshot(snapshot => {
         const visitas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         render(visitas);
       }, err => {
         document.getElementById("lista-visitas").innerHTML =
-          `<div class="vacio">No se pudo conectar con la base de datos.<br>${err.message}</div>`;
+          `<div class="vacio">No se pudo conectar con la base de datos.<br>${esc(err.message)}</div>`;
       });
     }
-    const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY);
     if(quienSoy) activarNotificaciones(quienSoy);
     cargarEstadoNotificaciones();
   }
@@ -397,9 +471,6 @@
   ];
 
   // Un color por persona, para diferenciar de un vistazo a quién le toca cada visita.
-  // "borde" es el color fuerte (el que se ve en el borde de la tarjeta), "bg" es
-  // el mismo color pero bien clarito para el interior del tag, y "texto" una
-  // versión oscura del mismo color para que se lea bien sobre el "bg".
   const COLOR_RESPONSABLE = {
     Juan:  { bg: "#e8ebf7", texto: "#1e3a8a", borde: "#1e3a8a" },   // azul marino
     Alejo: { bg: "#fdeaea", texto: "#b91c1c", borde: "#dc2626" },   // rojo estilo Miguez
@@ -505,6 +576,7 @@
   }
 
   function avisarPorPush(nombreResponsable, titulo, cuerpo){
+    if(!nombreResponsable) return;
     coleccionDispositivos.where("nombre", "==", nombreResponsable).get().then(snap => {
       snap.forEach(doc => {
         const token = doc.data().token;
@@ -520,8 +592,7 @@
 
   // Cada vez que a un celular le llega un aviso de verdad, el service worker confirma
   // solo que lo recibió (ver firebase-messaging-sw.js). Acá juntamos esa última
-  // confirmación por persona (el dispositivo más reciente de cada uno) para mostrar
-  // un estado simple: "todo bien" o "hace mucho que no le llega nada".
+  // confirmación por persona para mostrar un estado simple.
   function formatearHaceCuanto(fecha){
     const ms = Date.now() - fecha.getTime();
     const horas = ms / (1000 * 60 * 60);
@@ -533,6 +604,8 @@
 
   function cargarEstadoNotificaciones(){
     const cont = document.getElementById("lista-estado-notificaciones");
+    const resumen = document.getElementById("resumen-notificaciones");
+    const panel = document.getElementById("panel-notificaciones");
     if(!cont) return;
     coleccionDispositivos.get().then(snap => {
       const porPersona = {};
@@ -546,6 +619,7 @@
         }
       });
 
+      let enRojo = 0;
       cont.innerHTML = EQUIPO.map(p => {
         const estado = porPersona[p.nombre];
         let texto, color;
@@ -560,12 +634,22 @@
           const horas = (Date.now() - fecha.getTime()) / (1000 * 60 * 60);
           texto = `último aviso recibido ${formatearHaceCuanto(fecha)}`;
           color = horas <= 72 ? "#22c55e" : "#dc2626";
+          if(horas > 72) enRojo++;
         }
         return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--borde); font-size:0.85rem;">
-          <span style="font-weight:600;">${p.nombre}</span>
+          <span style="font-weight:600;">${esc(p.nombre)}</span>
           <span style="color:${color};">● ${texto}</span>
         </div>`;
       }).join("");
+
+      if(enRojo > 0){
+        resumen.textContent = `⚠️ ${enRojo} con problemas`;
+        resumen.style.color = "#dc2626";
+        panel.open = true;
+      } else {
+        resumen.textContent = "✓ todo bien";
+        resumen.style.color = "#22c55e";
+      }
     }).catch(() => {
       cont.innerHTML = `<div class="aviso">No se pudo cargar el estado.</div>`;
     });
@@ -604,7 +688,8 @@
       `Dirección: ${v.direccion}\n` +
       `Día: ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} — ${v.hora}hs\n` +
       `Interesado: ${v.nombreInteresado}` +
-      (v.telefonoInteresado ? ` (${v.telefonoInteresado})` : "");
+      (v.telefonoInteresado ? ` (${v.telefonoInteresado})` : "") +
+      (v.notas ? `\nNotas: ${v.notas}` : "");
     return encodeURIComponent(linea);
   }
 
@@ -613,8 +698,31 @@
     return encodeURIComponent(linea);
   }
 
+  function linkMapa(direccion){
+    return "https://www.google.com/maps/search/?api=1&query=" +
+      encodeURIComponent(direccion + ", La Plata, Buenos Aires");
+  }
+
   let visitasActuales = [];
   let idVisitaEditando = null;
+
+  // ---- Filtro "Todas / Mis visitas" (se recuerda por dispositivo) ----
+  let filtro = "todas";
+  try { filtro = localStorage.getItem(CLAVE_FILTRO) || "todas"; } catch(e){}
+
+  function actualizarChips(){
+    document.querySelectorAll(".chip[data-filtro]").forEach(ch => {
+      ch.classList.toggle("activo", ch.dataset.filtro === filtro);
+    });
+  }
+  document.querySelectorAll(".chip[data-filtro]").forEach(ch => {
+    ch.addEventListener("click", () => {
+      filtro = ch.dataset.filtro;
+      try { localStorage.setItem(CLAVE_FILTRO, filtro); } catch(e){}
+      actualizarChips();
+      render(visitasActuales);
+    });
+  });
 
   // Las visitas de días anteriores a hoy pasan solas a "Pasadas" (al final, cerrada).
   // Solo se muestran las de los últimos DIAS_PASADAS días; las más viejas siguen
@@ -630,14 +738,19 @@
       ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
       : "";
     const color = COLOR_RESPONSABLE[v.responsable] || COLOR_RESPONSABLE_DEFAULT;
+    const id = esc(v.id);
 
     const acciones = esPasada
-      ? `<button class="btn-reprogramar" onclick="reprogramarVisita('${v.id}')">↻ Reprogramar</button>
-         <button class="btn-borrar" onclick="borrarVisita('${v.id}')">✕</button>`
-      : `<button class="btn-wsp" onclick="window.open('${linkWsp}', '_blank')">A ${v.responsable}</button>
-         ${linkWspInteresado ? `<button class="btn-wsp" onclick="window.open('${linkWspInteresado}', '_blank')">Al interesado</button>` : ""}
-         <button class="btn-borrar" onclick="editarVisita('${v.id}')" style="color:var(--azul);background:#ebf4ff;">✎</button>
-         <button class="btn-borrar" onclick="borrarVisita('${v.id}')">✕</button>`;
+      ? `<button type="button" class="btn-reprogramar" data-accion="reprogramar" data-id="${id}">↻ Reprogramar</button>
+         <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`
+      : `<a class="btn-wsp" href="${esc(linkWsp)}" target="_blank" rel="noopener">A ${esc(v.responsable)}</a>
+         ${linkWspInteresado ? `<a class="btn-wsp" href="${esc(linkWspInteresado)}" target="_blank" rel="noopener">Al interesado</a>` : ""}
+         <button type="button" class="btn-editar" data-accion="editar" data-id="${id}">✎</button>
+         <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`;
+
+    const telefono = v.telefonoInteresado
+      ? ` · 📞 <a href="tel:+${esc(v.telefonoInteresado)}">${esc(v.telefonoInteresado)}</a>`
+      : "";
 
     const div = document.createElement("div");
     div.className = "visita" + (esPasada ? " pasada" : "");
@@ -646,14 +759,13 @@
     div.innerHTML = `
       <div class="visita-top">
         <div>
-          <span class="tag-responsable" style="background:#ffffff; color:${color.texto}; border:1px solid ${color.borde};">${v.responsable}</span>
-          <div class="visita-direccion">${v.direccion}</div>
+          <span class="tag-responsable" style="background:#ffffff; color:${color.texto}; border:1px solid ${color.borde};">${esc(v.responsable)}</span>
+          <div><a class="visita-direccion" href="${esc(linkMapa(v.direccion || ""))}" target="_blank" rel="noopener">${esc(v.direccion)} 📍</a></div>
         </div>
-        <div class="visita-cuando">${v.hora}hs</div>
+        <div class="visita-cuando">${esc(v.hora)}hs</div>
       </div>
-      <div class="visita-datos">
-        👤 ${v.nombreInteresado}${v.telefonoInteresado ? " · 📞 " + v.telefonoInteresado : ""}
-      </div>
+      <div class="visita-datos">👤 ${esc(v.nombreInteresado)}${telefono}</div>
+      ${v.notas ? `<div class="visita-notas">📝 ${esc(v.notas)}</div>` : ""}
       <div class="visita-acciones">${acciones}</div>
     `;
     return div;
@@ -676,13 +788,18 @@
   function render(visitas){
     visitasActuales = visitas;
 
+    const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY);
+    const visibles = (filtro === "mias" && quienSoy)
+      ? visitas.filter(v => v.responsable === quienSoy)
+      : visitas;
+
     const hoy = fechaHoyStr();
     const limitePasadas = sumarDias(hoy, -DIAS_PASADAS);
     const orden = (a,b) => ((a.fecha||"")+(a.hora||"")).localeCompare((b.fecha||"")+(b.hora||""));
 
-    const proximas = visitas.filter(v => !v.fecha || v.fecha >= hoy).sort(orden);
+    const proximas = visibles.filter(v => !v.fecha || v.fecha >= hoy).sort(orden);
     // Pasadas: la más reciente primero (ayer arriba), que es la que más probablemente haya que reprogramar
-    const pasadas = visitas
+    const pasadas = visibles
       .filter(v => v.fecha && v.fecha < hoy && v.fecha >= limitePasadas)
       .sort((a,b) => orden(b,a));
 
@@ -697,7 +814,7 @@
     if(proximas.length === 0){
       const vacio = document.createElement("div");
       vacio.className = "vacio";
-      vacio.textContent = "No hay visitas próximas.";
+      vacio.textContent = filtro === "mias" ? "No tenés visitas próximas." : "No hay visitas próximas.";
       cont.appendChild(vacio);
     } else {
       agregarConSeparadores(cont, proximas, false);
@@ -723,6 +840,16 @@
     }
   }
 
+  // Botones de las tarjetas (editar / reprogramar / borrar)
+  document.getElementById("lista-visitas").addEventListener("click", e => {
+    const btn = e.target.closest("[data-accion]");
+    if(!btn) return;
+    const id = btn.dataset.id;
+    if(btn.dataset.accion === "editar") editarVisita(id);
+    else if(btn.dataset.accion === "reprogramar") reprogramarVisita(id);
+    else if(btn.dataset.accion === "borrar") borrarVisita(id);
+  });
+
   // Si la app queda abierta de un día para el otro, se reacomoda sola al cambiar el día.
   let ultimoDiaRender = fechaHoyStr();
   setInterval(() => {
@@ -738,6 +865,26 @@
     coleccionVisitas.doc(id).delete();
   }
 
+  // ---- Formulario plegable ----
+  const cardForm = document.getElementById("card-form");
+  const btnNuevaVisita = document.getElementById("btn-nueva-visita");
+
+  function abrirForm(){
+    cardForm.style.display = "block";
+    btnNuevaVisita.style.display = "none";
+    cardForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function cerrarForm(){
+    cardForm.style.display = "none";
+    btnNuevaVisita.style.display = "block";
+  }
+
+  btnNuevaVisita.addEventListener("click", () => {
+    cancelarEdicion();
+    abrirForm();
+    document.getElementById("direccion").focus();
+  });
+
   function editarVisita(id){
     const v = visitasActuales.find(x => x.id === id);
     if(!v) return;
@@ -748,14 +895,13 @@
     document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
     setearTelefonoInteresadoForm(v.telefonoInteresado || "");
     document.getElementById("responsable").value = v.responsable || "";
+    document.getElementById("notas").value = v.notas || "";
 
     document.getElementById("titulo-form-visita").textContent = "Editar visita";
     document.getElementById("btn-guardar-visita").textContent = "Guardar cambios";
-    document.getElementById("btn-cancelar-edicion").style.display = "block";
     document.getElementById("aviso-form-visita").textContent =
-      "Si cambiás el día o la hora, los recordatorios automáticos se vuelven a programar para el nuevo horario.";
-
-    document.getElementById("form-visita").scrollIntoView({ behavior: "smooth" });
+      "Si cambiás el día, la hora o el responsable, le llega el aviso al celu y los recordatorios se reprograman solos.";
+    abrirForm();
   }
 
   // Reprogramar = editar, pero con día y hora vacíos para obligar a elegir los nuevos.
@@ -766,7 +912,7 @@
     document.getElementById("titulo-form-visita").textContent = "Reprogramar visita";
     document.getElementById("btn-guardar-visita").textContent = "Guardar nueva fecha";
     document.getElementById("aviso-form-visita").textContent =
-      "Elegí el nuevo día y hora. La visita vuelve a \"Próximas\" y los recordatorios automáticos se reprograman solos.";
+      "Elegí el nuevo día y hora. La visita vuelve a \"Próximas\", le avisa al responsable y los recordatorios se reprograman solos.";
   }
 
   function cancelarEdicion(){
@@ -774,12 +920,18 @@
     document.getElementById("form-visita").reset();
     document.getElementById("titulo-form-visita").textContent = "Cargar nueva visita";
     document.getElementById("btn-guardar-visita").textContent = "Guardar visita";
-    document.getElementById("btn-cancelar-edicion").style.display = "none";
     document.getElementById("aviso-form-visita").textContent =
-      "Al guardar se arma automáticamente el mensaje de WhatsApp para el responsable — solo hay que tocar \"Enviar por WhatsApp\".";
+      "Al guardar, al responsable le llega la notificación al celu.";
   }
 
-  document.getElementById("btn-cancelar-edicion").addEventListener("click", cancelarEdicion);
+  document.getElementById("btn-cancelar-edicion").addEventListener("click", () => {
+    cancelarEdicion();
+    cerrarForm();
+  });
+
+  function textoVisita(v){
+    return `${v.direccion} — ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} ${v.hora}hs (${v.nombreInteresado})`;
+  }
 
   document.getElementById("form-visita").addEventListener("submit", function(e){
     e.preventDefault();
@@ -791,18 +943,33 @@
       hora: horaElegida,
       nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
       telefonoInteresado: leerTelefonoInteresado(),
-      responsable: document.getElementById("responsable").value
+      responsable: document.getElementById("responsable").value,
+      notas: document.getElementById("notas").value.trim()
     };
 
     if(idVisitaEditando){
-      // Al editar, reseteamos los flags de recordatorio para que los avisos automáticos
-      // se vuelvan a evaluar con el día/hora nuevos (por si cambiaron).
-      coleccionVisitas.doc(idVisitaEditando).update({
-        ...datosVisita,
-        recordatorioEnviado: false,
-        recordatorio2hEnviado: false
-      }).then(() => {
+      const anterior = visitasActuales.find(x => x.id === idVisitaEditando) || {};
+      const cambioHorario = anterior.fecha !== datosVisita.fecha || anterior.hora !== datosVisita.hora;
+      const cambioResponsable = anterior.responsable !== datosVisita.responsable;
+
+      // Los flags de recordatorio solo se resetean si cambió el día/hora,
+      // así no se repiten avisos que ya se mandaron.
+      const cambios = { ...datosVisita };
+      if(cambioHorario){
+        cambios.recordatorioEnviado = false;
+        cambios.recordatorio2hEnviado = false;
+      }
+
+      coleccionVisitas.doc(idVisitaEditando).update(cambios).then(() => {
+        if(cambioResponsable){
+          avisarPorPush(datosVisita.responsable, "Nueva visita asignada 📍", textoVisita(datosVisita));
+          avisarPorPush(anterior.responsable, "Visita reasignada 🔄",
+            `${datosVisita.direccion} ahora la toma ${datosVisita.responsable}`);
+        } else if(cambioHorario){
+          avisarPorPush(datosVisita.responsable, "Visita reprogramada 🔄", textoVisita(datosVisita));
+        }
         cancelarEdicion();
+        cerrarForm();
       }).catch(err => alert("No se pudo guardar los cambios. Revisá la conexión.\n" + err.message));
       return;
     }
@@ -813,11 +980,8 @@
     };
     coleccionVisitas.add(nuevaVisita).then(() => {
       this.reset();
-      avisarPorPush(
-        nuevaVisita.responsable,
-        "Nueva visita asignada 📍",
-        `${nuevaVisita.direccion} — ${diaSemana(nuevaVisita.fecha)} ${formatearFecha(nuevaVisita.fecha)} ${nuevaVisita.hora}hs (${nuevaVisita.nombreInteresado})`
-      );
+      cerrarForm();
+      avisarPorPush(nuevaVisita.responsable, "Nueva visita asignada 📍", textoVisita(nuevaVisita));
     }).catch(err => alert("No se pudo guardar la visita. Revisá la conexión.\n" + err.message));
   });
 
