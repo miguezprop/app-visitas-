@@ -23,6 +23,9 @@ function fechaStr(d) {
 
 exports.handler = async () => {
   const db = admin.firestore();
+  // Una visita puede tener varios responsables ("responsables"); las viejas solo "responsable".
+  const responsablesDe = v => (Array.isArray(v.responsables) && v.responsables.length)
+    ? v.responsables : (v.responsable ? [v.responsable] : []);
   const ahora = ahoraArgentina();
   const hoy = fechaStr(ahora);
   const minutosAhora = ahora.getUTCHours() * 60 + ahora.getUTCMinutes();
@@ -40,7 +43,7 @@ exports.handler = async () => {
   snap.forEach(doc => {
     const v = doc.data();
 
-    if (v.recordatorioEnviado || !v.hora || !v.responsable) {
+    if (v.recordatorioEnviado || !v.hora || !responsablesDe(v).length) {
       console.log(`[recordatorio-hora] SALTEADA doc=${doc.id} responsable=${v.responsable} hora=${v.hora} recordatorioEnviado=${v.recordatorioEnviado}`);
       return;
     }
@@ -58,25 +61,27 @@ exports.handler = async () => {
     }
 
     avisos.push((async () => {
-      const dispSnap = await db.collection('dispositivos').where('nombre', '==', v.responsable).get();
-      console.log(`[recordatorio-hora] dispositivos de "${v.responsable}": ${dispSnap.size}`);
-      await Promise.all(dispSnap.docs.map(async dispDoc => {
-        const token = dispDoc.data().token;
-        if (!token) return;
-        try {
-          await admin.messaging().send({
-            token,
-            notification: {
-              title: 'En 1 hora tenés visita ⏰',
-              body: `${v.direccion} — ${v.hora}hs (${v.nombreInteresado || 'interesado'})`
-            },
-            data: { idDispositivo: dispDoc.id },
-            webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
-          });
-          console.log(`[recordatorio-hora] push enviado OK a ${v.responsable} (dispositivo ${dispDoc.id})`);
-        } catch (err) {
-          console.warn(`[recordatorio-hora] No se pudo avisar a ${v.responsable} (dispositivo ${dispDoc.id}):`, err.message);
-        }
+      await Promise.all(responsablesDe(v).map(async nombre => {
+        const dispSnap = await db.collection('dispositivos').where('nombre', '==', nombre).get();
+        console.log(`[recordatorio-hora] dispositivos de "${nombre}": ${dispSnap.size}`);
+        await Promise.all(dispSnap.docs.map(async dispDoc => {
+          const token = dispDoc.data().token;
+          if (!token) return;
+          try {
+            await admin.messaging().send({
+              token,
+              notification: {
+                title: 'En 1 hora tenés visita ⏰',
+                body: `${v.direccion} — ${v.hora}hs (${v.nombreInteresado || 'interesado'})`
+              },
+              data: { idDispositivo: dispDoc.id },
+              webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
+            });
+            console.log(`[recordatorio-hora] push enviado OK a ${nombre} (dispositivo ${dispDoc.id})`);
+          } catch (err) {
+            console.warn(`[recordatorio-hora] No se pudo avisar a ${nombre} (dispositivo ${dispDoc.id}):`, err.message);
+          }
+        }));
       }));
       await doc.ref.update({ recordatorioEnviado: true });
     })());

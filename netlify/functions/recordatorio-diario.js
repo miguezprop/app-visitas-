@@ -29,8 +29,10 @@ exports.handler = async () => {
   const porResponsable = {};
   snap.forEach(doc => {
     const v = doc.data();
-    if (!v.responsable) return;
-    porResponsable[v.responsable] = (porResponsable[v.responsable] || 0) + 1;
+    // Una visita puede tener varios responsables ("responsables"); las viejas solo "responsable".
+    const nombres = (Array.isArray(v.responsables) && v.responsables.length)
+      ? v.responsables : (v.responsable ? [v.responsable] : []);
+    nombres.forEach(n => { porResponsable[n] = (porResponsable[n] || 0) + 1; });
   });
 
   const envios = Object.entries(porResponsable).map(async ([nombre, cantidad]) => {

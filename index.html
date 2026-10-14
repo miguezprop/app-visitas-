@@ -164,6 +164,26 @@
     margin-top:8px;
     white-space:pre-wrap;
   }
+  .chips-responsables{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:4px;
+  }
+  .chip-responsable{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:2px solid #cbd5e0;
+    border-radius:20px;
+    padding:6px 12px;
+    font-weight:600;
+    cursor:pointer;
+    user-select:none;
+    background:#fff;
+  }
+  .chip-responsable input{ width:auto; margin:0; }
+  .tag-responsable + .tag-responsable{ margin-left:4px; }
   .tag-responsable{
     display:inline-block;
     background:#ebf4ff;
@@ -326,17 +346,15 @@
       </div>
       <p class="aviso" style="margin-top:4px;">"549" = celular de Argentina. Cambialo solo si el número es de otro país.</p>
 
-      <label for="responsable">Asignar a</label>
-      <select id="responsable" required>
-        <option value="" disabled selected>Elegir responsable</option>
-      </select>
+      <label>Asignar a <span style="font-weight:400; color:var(--texto-suave);">(podés tildar más de uno)</span></label>
+      <div id="responsables" class="chips-responsables"></div>
 
       <label for="notas">Notas (opcional)</label>
       <textarea id="notas" placeholder="Ej: las llaves las tiene el portero · es venta · viene con la pareja"></textarea>
 
       <button type="submit" class="btn-primario" id="btn-guardar-visita">Guardar visita</button>
       <button type="button" class="btn-primario" id="btn-cancelar-edicion" style="background:#a0aec0; margin-top:8px;">Cancelar</button>
-      <p class="aviso" id="aviso-form-visita">Al guardar, al responsable le llega la notificación al celu.</p>
+      <p class="aviso" id="aviso-form-visita">Al guardar, a los asignados les llega la notificación al celu.</p>
     </form>
   </div>
 
@@ -529,13 +547,40 @@
     }
   }
 
-  const selResponsable = document.getElementById("responsable");
+  // Una visita puede tener uno o más responsables. Las visitas viejas tienen solo
+  // "responsable" (texto); las nuevas guardan "responsables" (lista) y además
+  // "responsable" con el primero, para que todo lo anterior siga funcionando.
+  function responsablesDe(v){
+    if(Array.isArray(v.responsables) && v.responsables.length) return v.responsables;
+    return v.responsable ? [v.responsable] : [];
+  }
+
+  const contResponsables = document.getElementById("responsables");
   EQUIPO.forEach(p => {
-    const op = document.createElement("option");
-    op.value = p.nombre;
-    op.textContent = p.nombre;
-    selResponsable.appendChild(op);
+    const color = COLOR_RESPONSABLE[p.nombre] || COLOR_RESPONSABLE_DEFAULT;
+    const lab = document.createElement("label");
+    lab.className = "chip-responsable";
+    lab.style.color = color.texto;
+    lab.innerHTML = `<input type="checkbox" value="${p.nombre}"> ${p.nombre}`;
+    const chk = lab.querySelector("input");
+    const pintar = () => {
+      lab.style.borderColor = chk.checked ? color.borde : "#cbd5e0";
+      lab.style.background = chk.checked ? color.bg : "#fff";
+    };
+    chk.addEventListener("change", pintar);
+    lab.pintar = pintar;
+    contResponsables.appendChild(lab);
   });
+
+  function leerResponsablesForm(){
+    return [...contResponsables.querySelectorAll("input:checked")].map(c => c.value);
+  }
+  function setearResponsablesForm(lista){
+    contResponsables.querySelectorAll(".chip-responsable").forEach(lab => {
+      lab.querySelector("input").checked = lista.includes(lab.querySelector("input").value);
+      lab.pintar();
+    });
+  }
 
   const contBotonesQuienSoy = document.getElementById("botones-quien-soy");
   EQUIPO.forEach(p => {
@@ -733,19 +778,23 @@
   let pasadasAbiertas = false;
 
   function crearTarjeta(v, esPasada){
-    const persona = EQUIPO.find(p => p.nombre === v.responsable);
-    const telResponsable = persona ? persona.telefono : "";
-    const linkWsp = `https://wa.me/${telResponsable}?text=${armarMensajeWsp(v)}`;
+    const responsables = responsablesDe(v);
+    const botonesWspEquipo = responsables.map(nombre => {
+      const persona = EQUIPO.find(p => p.nombre === nombre);
+      const tel = persona ? persona.telefono : "";
+      const link = `https://wa.me/${tel}?text=${armarMensajeWsp(v)}`;
+      return `<a class="btn-wsp" href="${esc(link)}" target="_blank" rel="noopener">A ${esc(nombre)}</a>`;
+    }).join("\n         ");
     const linkWspInteresado = v.telefonoInteresado
       ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
       : "";
-    const color = COLOR_RESPONSABLE[v.responsable] || COLOR_RESPONSABLE_DEFAULT;
+    const color = COLOR_RESPONSABLE[responsables[0]] || COLOR_RESPONSABLE_DEFAULT;
     const id = esc(v.id);
 
     const acciones = esPasada
       ? `<button type="button" class="btn-reprogramar" data-accion="reprogramar" data-id="${id}">↻ Reprogramar</button>
          <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`
-      : `<a class="btn-wsp" href="${esc(linkWsp)}" target="_blank" rel="noopener">A ${esc(v.responsable)}</a>
+      : `${botonesWspEquipo}
          ${linkWspInteresado ? `<a class="btn-wsp" href="${esc(linkWspInteresado)}" target="_blank" rel="noopener">Al interesado</a>` : ""}
          <button type="button" class="btn-editar" data-accion="editar" data-id="${id}">✎</button>
          <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`;
@@ -757,11 +806,18 @@
     const div = document.createElement("div");
     div.className = "visita" + (esPasada ? " pasada" : "");
     div.style.borderLeftColor = color.borde;
+    if(responsables.length > 1){
+      const c2 = COLOR_RESPONSABLE[responsables[1]] || COLOR_RESPONSABLE_DEFAULT;
+      div.style.borderImage = `linear-gradient(${color.borde} 50%, ${c2.borde} 50%) 1`;
+    }
     div.style.background = color.bg;
     div.innerHTML = `
       <div class="visita-top">
         <div>
-          <span class="tag-responsable" style="background:#ffffff; color:${color.texto}; border:1px solid ${color.borde};">${esc(v.responsable)}</span>
+          ${responsables.map(nombre => {
+            const c = COLOR_RESPONSABLE[nombre] || COLOR_RESPONSABLE_DEFAULT;
+            return `<span class="tag-responsable" style="background:#ffffff; color:${c.texto}; border:1px solid ${c.borde};">${esc(nombre)}</span>`;
+          }).join("")}
           <div><a class="visita-direccion" href="${esc(linkMapa(v.direccion || ""))}" target="_blank" rel="noopener">${esc(v.direccion)} 📍</a></div>
         </div>
         <div class="visita-cuando">${esc(v.hora)}hs</div>
@@ -792,7 +848,7 @@
 
     const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY);
     const visibles = (filtro === "mias" && quienSoy)
-      ? visitas.filter(v => v.responsable === quienSoy)
+      ? visitas.filter(v => responsablesDe(v).includes(quienSoy))
       : visitas;
 
     const hoy = fechaHoyStr();
@@ -896,13 +952,13 @@
     setearHoraForm(v.hora || "");
     document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
     setearTelefonoInteresadoForm(v.telefonoInteresado || "");
-    document.getElementById("responsable").value = v.responsable || "";
+    setearResponsablesForm(responsablesDe(v));
     document.getElementById("notas").value = v.notas || "";
 
     document.getElementById("titulo-form-visita").textContent = "Editar visita";
     document.getElementById("btn-guardar-visita").textContent = "Guardar cambios";
     document.getElementById("aviso-form-visita").textContent =
-      "Si cambiás el día, la hora o el responsable, le llega el aviso al celu y los recordatorios se reprograman solos.";
+      "Si cambiás el día, la hora o los asignados, les llega el aviso al celu y los recordatorios se reprograman solos.";
     abrirForm();
   }
 
@@ -914,16 +970,17 @@
     document.getElementById("titulo-form-visita").textContent = "Reprogramar visita";
     document.getElementById("btn-guardar-visita").textContent = "Guardar nueva fecha";
     document.getElementById("aviso-form-visita").textContent =
-      "Elegí el nuevo día y hora. La visita vuelve a \"Próximas\", le avisa al responsable y los recordatorios se reprograman solos.";
+      "Elegí el nuevo día y hora. La visita vuelve a \"Próximas\", les avisa a los asignados y los recordatorios se reprograman solos.";
   }
 
   function cancelarEdicion(){
     idVisitaEditando = null;
     document.getElementById("form-visita").reset();
+    setearResponsablesForm([]);
     document.getElementById("titulo-form-visita").textContent = "Cargar nueva visita";
     document.getElementById("btn-guardar-visita").textContent = "Guardar visita";
     document.getElementById("aviso-form-visita").textContent =
-      "Al guardar, al responsable le llega la notificación al celu.";
+      "Al guardar, a los asignados les llega la notificación al celu.";
   }
 
   document.getElementById("btn-cancelar-edicion").addEventListener("click", () => {
@@ -939,20 +996,27 @@
     e.preventDefault();
     const horaElegida = leerHoraForm();
     if(!horaElegida){ alert("Elegí la hora y los minutos de la visita."); return; }
+    const responsablesElegidos = leerResponsablesForm();
+    if(!responsablesElegidos.length){ alert("Tildá al menos un responsable para la visita."); return; }
     const datosVisita = {
       direccion: document.getElementById("direccion").value.trim(),
       fecha: document.getElementById("fecha").value,
       hora: horaElegida,
       nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
       telefonoInteresado: leerTelefonoInteresado(),
-      responsable: document.getElementById("responsable").value,
+      responsable: responsablesElegidos[0],
+      responsables: responsablesElegidos,
       notas: document.getElementById("notas").value.trim()
     };
 
     if(idVisitaEditando){
       const anterior = visitasActuales.find(x => x.id === idVisitaEditando) || {};
       const cambioHorario = anterior.fecha !== datosVisita.fecha || anterior.hora !== datosVisita.hora;
-      const cambioResponsable = anterior.responsable !== datosVisita.responsable;
+      const antes = responsablesDe(anterior);
+      const ahora = datosVisita.responsables;
+      const agregados = ahora.filter(n => !antes.includes(n));
+      const sacados = antes.filter(n => !ahora.includes(n));
+      const siguen = ahora.filter(n => antes.includes(n));
 
       // Los flags de recordatorio solo se resetean si cambió el día/hora,
       // así no se repiten avisos que ya se mandaron.
@@ -963,12 +1027,11 @@
       }
 
       coleccionVisitas.doc(idVisitaEditando).update(cambios).then(() => {
-        if(cambioResponsable){
-          avisarPorPush(datosVisita.responsable, "Nueva visita asignada 📍", textoVisita(datosVisita));
-          avisarPorPush(anterior.responsable, "Visita reasignada 🔄",
-            `${datosVisita.direccion} ahora la toma ${datosVisita.responsable}`);
-        } else if(cambioHorario){
-          avisarPorPush(datosVisita.responsable, "Visita reprogramada 🔄", textoVisita(datosVisita));
+        agregados.forEach(n => avisarPorPush(n, "Nueva visita asignada 📍", textoVisita(datosVisita)));
+        sacados.forEach(n => avisarPorPush(n, "Visita reasignada 🔄",
+          `${datosVisita.direccion} ahora la toma${ahora.length > 1 ? "n" : ""} ${ahora.join(" y ")}`));
+        if(cambioHorario){
+          siguen.forEach(n => avisarPorPush(n, "Visita reprogramada 🔄", textoVisita(datosVisita)));
         }
         cancelarEdicion();
         cerrarForm();
@@ -982,8 +1045,9 @@
     };
     coleccionVisitas.add(nuevaVisita).then(() => {
       this.reset();
+      setearResponsablesForm([]);
       cerrarForm();
-      avisarPorPush(nuevaVisita.responsable, "Nueva visita asignada 📍", textoVisita(nuevaVisita));
+      nuevaVisita.responsables.forEach(n => avisarPorPush(n, "Nueva visita asignada 📍", textoVisita(nuevaVisita)));
     }).catch(err => alert("No se pudo guardar la visita. Revisá la conexión.\n" + err.message));
   });
 
