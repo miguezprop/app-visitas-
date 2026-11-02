@@ -78,8 +78,16 @@ exports.handler = async () => {
               webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
             });
             console.log(`[recordatorio-2horas] push enviado OK a ${nombre} (dispositivo ${dispDoc.id})`);
+            await dispDoc.ref.update({ ultimoIntentoEnvio: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
           } catch (err) {
             console.warn(`[recordatorio-2horas] No se pudo avisar a ${nombre} (dispositivo ${dispDoc.id}):`, err.message);
+            const actualizacion = { ultimoIntentoEnvio: admin.firestore.FieldValue.serverTimestamp() };
+            if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-argument') {
+              actualizacion.token = admin.firestore.FieldValue.delete();
+              actualizacion.tokenInvalido = true;
+              actualizacion.tokenInvalidoEn = admin.firestore.FieldValue.serverTimestamp();
+            }
+            await dispDoc.ref.update(actualizacion).catch(() => {});
           }
         }));
       }));
