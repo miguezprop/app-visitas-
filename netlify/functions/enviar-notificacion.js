@@ -17,18 +17,28 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos (token, title o body)' }) };
     }
 
-    await admin.messaging().send({
-      token,
-      notification: { title, body },
-      data: idDispositivo ? { idDispositivo } : {},
-      webpush: {
-        notification: { icon: '/icono.png' },
-        fcmOptions: { link: '/' }
-      }
-    });
+    const db = admin.firestore();
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
-  } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
-  }
-};
+    try {
+      await admin.messaging().send({
+        token,
+        notification: { title, body },
+        data: idDispositivo ? { idDispositivo } : {},
+        webpush: {
+          notification: { icon: '/icono.png' },
+          fcmOptions: { link: '/' }
+        }
+      });
+      if (idDispositivo) {
+        await db.collection('dispositivos').doc(idDispositivo)
+          .update({ ultimoIntentoEnvio: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+      }
+    } catch (errEnvio) {
+      if (idDispositivo) {
+        const actualizacion = { ultimoIntentoEnvio: admin.firestore.FieldValue.serverTimestamp() };
+        if (errEnvio.code === 'messaging/registration-token-not-registered' || errEnvio.code === 'messaging/invalid-argument') {
+          // El token ya no sirve del lado de Firebase: lo borramos para que se renueve
+          // solo la próxima vez que esa persona abra la app en ese celular.
+          actualizacion.token = admin.firestore.FieldValue.delete();
+          actualizacion.tokenInvalido = true;
+          actualizacion.tokenInvalidoEn = admin.firestore.FieldValue.serverTimestamp()
