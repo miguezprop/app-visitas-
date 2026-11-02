@@ -101,6 +101,17 @@
     margin-top:8px;
     line-height:1.4;
   }
+  .aviso-critico{
+    background:#fdeaea;
+    border:1px solid #dc2626;
+    color:#991b1b;
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:0.85rem;
+    line-height:1.4;
+    margin-bottom:14px;
+  }
+  .aviso-critico b{display:block; margin-bottom:4px;}
   .barra-sesion{
     display:flex;
     justify-content:space-between;
@@ -308,6 +319,8 @@
     <a href="#" id="btn-salir">Cerrar sesión</a>
   </div>
 
+  <div id="aviso-notificaciones-apagadas" class="aviso-critico" style="display:none;"></div>
+
   <button type="button" class="btn-nueva" id="btn-nueva-visita">+ Nueva visita</button>
 
   <div class="card" id="card-form" style="display:none;">
@@ -372,7 +385,7 @@
 
   <details class="card" id="panel-notificaciones">
     <summary>📶 Notificaciones del equipo <span class="resumen" id="resumen-notificaciones"></span></summary>
-    <p class="aviso">Cada vez que a alguien le llega un aviso, su celular lo confirma solo. Si alguien queda en rojo, es que hace días que no le llega nada (por ejemplo, si sacó la app de la pantalla de inicio) — este panel se abre solo cuando pasa eso.</p>
+    <p class="aviso">Cada vez que a alguien le llega un aviso, su celular lo confirma solo. Si a alguien le mandamos un aviso y no lo confirmó, o si en su celular se desactivaron las notificaciones, va a aparecer en rojo acá — así lo detectamos antes de que se pierda una visita. Si no tuvo ningún aviso para confirmar últimamente, no cuenta como problema.</p>
     <div id="lista-estado-notificaciones"></div>
   </details>
 </main>
@@ -596,30 +609,64 @@
     contBotonesQuienSoy.appendChild(btn);
   });
 
+  // Muestra (o esconde, si mensaje es null) un aviso bien visible arriba de todo cuando
+  // las notificaciones no están funcionando en ESTE celular. Es la persona que abre la
+  // app la que lo ve, no hace falta que un admin se dé cuenta desde el panel de abajo.
+  function mostrarAvisoNotificacionesApagadas(mensaje){
+    const cont = document.getElementById("aviso-notificaciones-apagadas");
+    if(!cont) return;
+    if(!mensaje){
+      cont.style.display = "none";
+      cont.innerHTML = "";
+      return;
+    }
+    cont.style.display = "block";
+    cont.innerHTML = `<b>⚠️ Las notificaciones no están activas en este celular</b>${esc(mensaje)}`;
+  }
+
   function activarNotificaciones(nombre){
     if(VAPID_KEY === "PEGAR_VAPID_KEY_ACA") return; // todavía no configuramos Cloud Messaging
-    if(!("Notification" in window) || !("serviceWorker" in navigator)) return;
+    if(!("Notification" in window) || !("serviceWorker" in navigator)){
+      mostrarAvisoNotificacionesApagadas("Este navegador no las soporta. Avisá para revisarlo.");
+      return;
+    }
+
+    if(Notification.permission === "denied"){
+      mostrarAvisoNotificacionesApagadas("Están bloqueadas a propósito en este celular. Hay que ir a Ajustes → Notificaciones → buscar esta app (o Safari) → activarlas, y después volver a abrir la app.");
+      return;
+    }
 
     navigator.serviceWorker.register("/firebase-messaging-sw.js")
       .then(registration => {
         return Notification.requestPermission().then(permiso => {
-          if(permiso !== "granted") return;
+          if(permiso !== "granted"){
+            mostrarAvisoNotificacionesApagadas("No se aceptó el permiso. Cerrá la app del todo, volvé a abrirla y aceptá cuando te lo pregunte.");
+            return null;
+          }
           const messaging = firebase.messaging();
           return messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
         });
       })
       .then(token => {
         if(!token) return;
+        mostrarAvisoNotificacionesApagadas(null);
         // Cada aparato (celu, PC, etc.) tiene su propio documento, para que a una misma
-        // persona le puedan llegar los avisos en más de un aparato a la vez.
+        // persona le puedan llegar los avisos en más de un aparato a la vez. Cada vez que
+        // se abre la app se pide un token fresco y se pisa el guardado — así, si el celular
+        // había perdido la suscripción (algo que iOS puede hacer solo, con el tiempo), se
+        // renueva sola sin que nadie tenga que borrar ni reinstalar nada.
         const idDoc = nombre + "_" + obtenerDeviceId();
         coleccionDispositivos.doc(idDoc).set({
           nombre: nombre,
           token: token,
-          actualizado: firebase.firestore.FieldValue.serverTimestamp()
+          actualizado: firebase.firestore.FieldValue.serverTimestamp(),
+          tokenInvalido: firebase.firestore.FieldValue.delete()
         }, { merge: true });
       })
-      .catch(err => console.warn("No se pudo activar notificaciones:", err.message));
+      .catch(err => {
+        console.warn("No se pudo activar notificaciones:", err.message);
+        mostrarAvisoNotificacionesApagadas("Hubo un problema activándolas. Cerrá la app del todo y volvé a abrirla; si sigue igual, avisá para revisarlo.");
+      });
   }
 
   function avisarPorPush(nombreResponsable, titulo, cuerpo){
@@ -659,11 +706,15 @@
       snap.forEach(doc => {
         const d = doc.data();
         if(!d.nombre) return;
-        const confirmacion = d.ultimaConfirmacionRecibida || null;
-        const actual = porPersona[d.nombre];
-        if(!actual || (confirmacion && (!actual.confirmacion || confirmacion.toMillis() > actual.confirmacion.toMillis()))){
-          porPersona[d.nombre] = { confirmacion, tieneDispositivo: true };
+        const actual = porPersona[d.nombre] || { confirmacion: null, intento: null, tokenInvalido: false };
+        if(d.ultimaConfirmacionRecibida && (!actual.confirmacion || d.ultimaConfirmacionRecibida.toMillis() > actual.confirmacion.toMillis())){
+          actual.confirmacion = d.ultimaConfirmacionRecibida;
         }
+        if(d.ultimoIntentoEnvio && (!actual.intento || d.ultimoIntentoEnvio.toMillis() > actual.intento.toMillis())){
+          actual.intento = d.ultimoIntentoEnvio;
+        }
+        if(d.tokenInvalido) actual.tokenInvalido = true;
+        porPersona[d.nombre] = actual;
       });
 
       let enRojo = 0;
@@ -673,19 +724,34 @@
         if(!estado){
           texto = "sin celular activado todavía";
           color = "#a0aec0";
-        } else if(!estado.confirmacion){
-          texto = "activado, esperando el primer aviso";
+        } else if(estado.tokenInvalido){
+          // Firebase mismo avisó que el aparato ya no existe para él (token vencido).
+          texto = "se desactivó solo en este celular — necesita abrir la app para reactivarlo";
+          color = "#dc2626";
+          enRojo++;
+        } else if(!estado.intento){
+          // Todavía no le mandamos ningún aviso real para poder confirmar si funciona.
+          texto = estado.confirmacion
+            ? `último aviso recibido ${formatearHaceCuanto(estado.confirmacion.toDate())}`
+            : "activado, esperando el primer aviso";
           color = "#a0aec0";
         } else {
-          const fecha = estado.confirmacion.toDate();
-          const horas = (Date.now() - fecha.getTime()) / (1000 * 60 * 60);
-          texto = `último aviso recibido ${formatearHaceCuanto(fecha)}`;
-          color = horas <= 72 ? "#22c55e" : "#dc2626";
-          if(horas > 72) enRojo++;
+          const intentoMs = estado.intento.toMillis();
+          const confMs = estado.confirmacion ? estado.confirmacion.toMillis() : 0;
+          if(confMs >= intentoMs - 2 * 60 * 1000){
+            // Confirmó en o después del último intento de mandarle algo -> está bien.
+            texto = `último aviso recibido ${formatearHaceCuanto(estado.confirmacion.toDate())}`;
+            color = "#22c55e";
+          } else {
+            // Le mandamos un aviso y nunca confirmó que le llegó: acá sí hay un problema real.
+            texto = `se le mandó un aviso ${formatearHaceCuanto(estado.intento.toDate())} y no se confirmó que le llegara`;
+            color = "#dc2626";
+            enRojo++;
+          }
         }
-        return `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--borde); font-size:0.85rem;">
-          <span style="font-weight:600;">${esc(p.nombre)}</span>
-          <span style="color:${color};">● ${texto}</span>
+        return `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--borde); font-size:0.85rem;">
+          <span style="font-weight:600; white-space:nowrap;">${esc(p.nombre)}</span>
+          <span style="color:${color}; text-align:right;">● ${texto}</span>
         </div>`;
       }).join("");
 
