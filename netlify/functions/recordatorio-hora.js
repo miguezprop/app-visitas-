@@ -78,8 +78,19 @@ exports.handler = async () => {
               webpush: { notification: { icon: '/icono.png' }, fcmOptions: { link: '/' } }
             });
             console.log(`[recordatorio-hora] push enviado OK a ${nombre} (dispositivo ${dispDoc.id})`);
+            await dispDoc.ref.update({ ultimoIntentoEnvio: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
           } catch (err) {
             console.warn(`[recordatorio-hora] No se pudo avisar a ${nombre} (dispositivo ${dispDoc.id}):`, err.message);
+            const actualizacion = { ultimoIntentoEnvio: admin.firestore.FieldValue.serverTimestamp() };
+            if (err.code === 'messaging/registration-token-not-registered' || err.code === 'messaging/invalid-argument') {
+              // Firebase nos dice que este token ya no sirve (el celular perdió la suscripción).
+              // Lo borramos para que, la próxima vez que esa persona abra la app, se registre
+              // uno nuevo de cero en vez de quedar un token muerto dando vueltas.
+              actualizacion.token = admin.firestore.FieldValue.delete();
+              actualizacion.tokenInvalido = true;
+              actualizacion.tokenInvalidoEn = admin.firestore.FieldValue.serverTimestamp();
+            }
+            await dispDoc.ref.update(actualizacion).catch(() => {});
           }
         }));
       }));
