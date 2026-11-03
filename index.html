@@ -359,17 +359,6 @@
       </div>
       <p class="aviso" style="margin-top:4px;">"549" = celular de Argentina. Cambialo solo si el número es de otro país.</p>
 
-      <label for="nombre-contacto">Contacto para entrar <span style="font-weight:400; color:var(--texto-suave);">(dueño/inquilino — opcional)</span></label>
-      <input type="text" id="nombre-contacto" placeholder="Ej: Juan (inquilino) — dejar vacío si no hace falta">
-
-      <label for="telefono-contacto">Teléfono de esa persona</label>
-      <div style="display:flex; gap:6px; align-items:center;">
-        <span style="color:var(--texto-suave); font-weight:600;">+</span>
-        <input type="tel" id="telefono-contacto-prefijo" value="549" inputmode="numeric" title="Prefijo del país (549 = Argentina celular)" style="width:64px; text-align:center;">
-        <input type="tel" id="telefono-contacto" placeholder="Ej: 2214567890" inputmode="numeric" style="flex:1;">
-      </div>
-      <p class="aviso" style="margin-top:4px;">Completalo solo si para esa propiedad hay que avisarle antes al dueño o inquilino para que esté o deje abierto.</p>
-
       <label>Asignar a <span style="font-weight:400; color:var(--texto-suave);">(podés tildar más de uno)</span></label>
       <div id="responsables" class="chips-responsables"></div>
 
@@ -573,26 +562,6 @@
     }
   }
 
-  // Contacto opcional para avisar antes de entrar (dueño o inquilino de la propiedad).
-  const inputPrefijoContacto = document.getElementById("telefono-contacto-prefijo");
-  const inputTelContacto = document.getElementById("telefono-contacto");
-
-  function leerTelefonoContacto(){
-    const prefijo = inputPrefijoContacto.value.replace(/\D/g, "");
-    const soloNumeros = inputTelContacto.value.replace(/\D/g, "");
-    return soloNumeros ? prefijo + soloNumeros : "";
-  }
-  function setearTelefonoContactoForm(numero){
-    if(!numero){ inputTelContacto.value = ""; return; }
-    const prefijoActual = inputPrefijoContacto.value.replace(/\D/g, "") || "549";
-    if(numero.startsWith(prefijoActual)){
-      inputTelContacto.value = numero.slice(prefijoActual.length);
-    } else {
-      inputPrefijoContacto.value = "";
-      inputTelContacto.value = numero;
-    }
-  }
-
   // Una visita puede tener uno o más responsables. Las visitas viejas tienen solo
   // "responsable" (texto); las nuevas guardan "responsables" (lista) y además
   // "responsable" con el primero, para que todo lo anterior siga funcionando.
@@ -746,4 +715,411 @@
         if(d.ultimoIntentoEnvio && (!actual.intento || d.ultimoIntentoEnvio.toMillis() > actual.intento.toMillis())){
           actual.intento = d.ultimoIntentoEnvio;
         }
-        if(d.tokenInvalido)
+        if(d.tokenInvalido) actual.tokenInvalido = true;
+        porPersona[d.nombre] = actual;
+      });
+
+      let enRojo = 0;
+      cont.innerHTML = EQUIPO.map(p => {
+        const estado = porPersona[p.nombre];
+        let texto, color;
+        if(!estado){
+          texto = "sin celular activado todavía";
+          color = "#a0aec0";
+        } else if(estado.tokenInvalido){
+          // Firebase mismo avisó que el aparato ya no existe para él (token vencido).
+          texto = "se desactivó solo en este celular — necesita abrir la app para reactivarlo";
+          color = "#dc2626";
+          enRojo++;
+        } else if(!estado.intento){
+          // Todavía no le mandamos ningún aviso real para poder confirmar si funciona.
+          texto = estado.confirmacion
+            ? `último aviso recibido ${formatearHaceCuanto(estado.confirmacion.toDate())}`
+            : "activado, esperando el primer aviso";
+          color = "#a0aec0";
+        } else {
+          const intentoMs = estado.intento.toMillis();
+          const confMs = estado.confirmacion ? estado.confirmacion.toMillis() : 0;
+          if(confMs >= intentoMs - 2 * 60 * 1000){
+            // Confirmó en o después del último intento de mandarle algo -> está bien.
+            texto = `último aviso recibido ${formatearHaceCuanto(estado.confirmacion.toDate())}`;
+            color = "#22c55e";
+          } else {
+            // Le mandamos un aviso y nunca confirmó que le llegó: acá sí hay un problema real.
+            texto = `se le mandó un aviso ${formatearHaceCuanto(estado.intento.toDate())} y no se confirmó que le llegara`;
+            color = "#dc2626";
+            enRojo++;
+          }
+        }
+        return `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--borde); font-size:0.85rem;">
+          <span style="font-weight:600; white-space:nowrap;">${esc(p.nombre)}</span>
+          <span style="color:${color}; text-align:right;">● ${texto}</span>
+        </div>`;
+      }).join("");
+
+      if(enRojo > 0){
+        resumen.textContent = `⚠️ ${enRojo} con problemas`;
+        resumen.style.color = "#dc2626";
+        panel.open = true;
+      } else {
+        resumen.textContent = "✓ todo bien";
+        resumen.style.color = "#22c55e";
+      }
+    }).catch(() => {
+      cont.innerHTML = `<div class="aviso">No se pudo cargar el estado.</div>`;
+    });
+  }
+
+  function formatearFecha(f){
+    const [y,m,d] = f.split("-");
+    return `${d}/${m}`;
+  }
+  function diaSemana(f){
+    const dias = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+    const dt = new Date(f + "T00:00:00");
+    return dias[dt.getDay()];
+  }
+  function fechaHoyStr(){
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+  function sumarDias(fechaStr, dias){
+    const [y,m,d] = fechaStr.split("-").map(Number);
+    const dt = new Date(y, m-1, d);
+    dt.setDate(dt.getDate() + dias);
+    return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  }
+  function etiquetaDia(f){
+    const hoy = fechaHoyStr();
+    if(f === hoy) return "Hoy";
+    if(f === sumarDias(hoy, 1)) return "Mañana";
+    if(f === sumarDias(hoy, -1)) return "Ayer";
+    const dia = diaSemana(f);
+    return dia.charAt(0).toUpperCase() + dia.slice(1) + " " + formatearFecha(f);
+  }
+
+  function armarMensajeWsp(v){
+    const linea = `Nueva visita asignada 📍\n` +
+      `Dirección: ${v.direccion}\n` +
+      `Día: ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} — ${v.hora}hs\n` +
+      `Interesado: ${v.nombreInteresado}` +
+      (v.telefonoInteresado ? ` (${v.telefonoInteresado})` : "") +
+      (v.notas ? `\nNotas: ${v.notas}` : "");
+    return encodeURIComponent(linea);
+  }
+
+  function armarMensajeWspInteresado(v){
+    const linea = `Hola ${v.nombreInteresado}! Te confirmamos la visita en ${v.direccion} el ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} a las ${v.hora}hs. ¡Nos vemos ahí!`;
+    return encodeURIComponent(linea);
+  }
+
+  function linkMapa(direccion){
+    return "https://www.google.com/maps/search/?api=1&query=" +
+      encodeURIComponent(direccion + ", La Plata, Buenos Aires");
+  }
+
+  let visitasActuales = [];
+  let idVisitaEditando = null;
+
+  // ---- Filtro "Todas / Mis visitas" (se recuerda por dispositivo) ----
+  let filtro = "todas";
+  try { filtro = localStorage.getItem(CLAVE_FILTRO) || "todas"; } catch(e){}
+
+  function actualizarChips(){
+    document.querySelectorAll(".chip[data-filtro]").forEach(ch => {
+      ch.classList.toggle("activo", ch.dataset.filtro === filtro);
+    });
+  }
+  document.querySelectorAll(".chip[data-filtro]").forEach(ch => {
+    ch.addEventListener("click", () => {
+      filtro = ch.dataset.filtro;
+      try { localStorage.setItem(CLAVE_FILTRO, filtro); } catch(e){}
+      actualizarChips();
+      render(visitasActuales);
+    });
+  });
+
+  // Las visitas de días anteriores a hoy pasan solas a "Pasadas" (al final, cerrada).
+  // Solo se muestran las de los últimos DIAS_PASADAS días; las más viejas siguen
+  // guardadas en la base, simplemente no se muestran.
+  const DIAS_PASADAS = 30;
+  let pasadasAbiertas = false;
+
+  function crearTarjeta(v, esPasada){
+    const responsables = responsablesDe(v);
+    const botonesWspEquipo = responsables.map(nombre => {
+      const persona = EQUIPO.find(p => p.nombre === nombre);
+      const tel = persona ? persona.telefono : "";
+      const link = `https://wa.me/${tel}?text=${armarMensajeWsp(v)}`;
+      return `<a class="btn-wsp" href="${esc(link)}" target="_blank" rel="noopener">A ${esc(nombre)}</a>`;
+    }).join("\n         ");
+    const linkWspInteresado = v.telefonoInteresado
+      ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
+      : "";
+    const color = COLOR_RESPONSABLE[responsables[0]] || COLOR_RESPONSABLE_DEFAULT;
+    const id = esc(v.id);
+
+    const acciones = esPasada
+      ? `<button type="button" class="btn-reprogramar" data-accion="reprogramar" data-id="${id}">↻ Reprogramar</button>
+         <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`
+      : `${botonesWspEquipo}
+         ${linkWspInteresado ? `<a class="btn-wsp" href="${esc(linkWspInteresado)}" target="_blank" rel="noopener">Al interesado</a>` : ""}
+         <button type="button" class="btn-editar" data-accion="editar" data-id="${id}">✎</button>
+         <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`;
+
+    const telefono = v.telefonoInteresado
+      ? ` · 📞 <a href="tel:+${esc(v.telefonoInteresado)}">${esc(v.telefonoInteresado)}</a>`
+      : "";
+
+    const div = document.createElement("div");
+    div.className = "visita" + (esPasada ? " pasada" : "");
+    div.style.borderLeftColor = color.borde;
+    if(responsables.length > 1){
+      const c2 = COLOR_RESPONSABLE[responsables[1]] || COLOR_RESPONSABLE_DEFAULT;
+      div.style.borderImage = `linear-gradient(${color.borde} 50%, ${c2.borde} 50%) 1`;
+    }
+    div.style.background = color.bg;
+    div.innerHTML = `
+      <div class="visita-top">
+        <div>
+          ${responsables.map(nombre => {
+            const c = COLOR_RESPONSABLE[nombre] || COLOR_RESPONSABLE_DEFAULT;
+            return `<span class="tag-responsable" style="background:#ffffff; color:${c.texto}; border:1px solid ${c.borde};">${esc(nombre)}</span>`;
+          }).join("")}
+          <div><a class="visita-direccion" href="${esc(linkMapa(v.direccion || ""))}" target="_blank" rel="noopener">${esc(v.direccion)} 📍</a></div>
+        </div>
+        <div class="visita-cuando">${esc(v.hora)}hs</div>
+      </div>
+      <div class="visita-datos">👤 ${esc(v.nombreInteresado)}${telefono}</div>
+      ${v.notas ? `<div class="visita-notas">📝 ${esc(v.notas)}</div>` : ""}
+      <div class="visita-acciones">${acciones}</div>
+    `;
+    return div;
+  }
+
+  function agregarConSeparadores(cont, lista, esPasada){
+    let fechaAnterior = null;
+    lista.forEach(v => {
+      if(v.fecha !== fechaAnterior){
+        fechaAnterior = v.fecha;
+        const encabezado = document.createElement("div");
+        encabezado.className = "separador-dia";
+        encabezado.textContent = v.fecha ? etiquetaDia(v.fecha) : "Sin fecha";
+        cont.appendChild(encabezado);
+      }
+      cont.appendChild(crearTarjeta(v, esPasada));
+    });
+  }
+
+  function render(visitas){
+    visitasActuales = visitas;
+
+    const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY);
+    const visibles = (filtro === "mias" && quienSoy)
+      ? visitas.filter(v => responsablesDe(v).includes(quienSoy))
+      : visitas;
+
+    const hoy = fechaHoyStr();
+    const limitePasadas = sumarDias(hoy, -DIAS_PASADAS);
+    const orden = (a,b) => ((a.fecha||"")+(a.hora||"")).localeCompare((b.fecha||"")+(b.hora||""));
+
+    const proximas = visibles.filter(v => !v.fecha || v.fecha >= hoy).sort(orden);
+    // Pasadas: la más reciente primero (ayer arriba), que es la que más probablemente haya que reprogramar
+    const pasadas = visibles
+      .filter(v => v.fecha && v.fecha < hoy && v.fecha >= limitePasadas)
+      .sort((a,b) => orden(b,a));
+
+    const cont = document.getElementById("lista-visitas");
+    const contador = document.getElementById("contador");
+    cont.innerHTML = "";
+
+    contador.textContent = proximas.length
+      ? `${proximas.length} ${proximas.length===1 ? "visita":"visitas"}`
+      : "";
+
+    if(proximas.length === 0){
+      const vacio = document.createElement("div");
+      vacio.className = "vacio";
+      vacio.textContent = filtro === "mias" ? "No tenés visitas próximas." : "No hay visitas próximas.";
+      cont.appendChild(vacio);
+    } else {
+      agregarConSeparadores(cont, proximas, false);
+    }
+
+    if(pasadas.length > 0){
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "btn-toggle-pasadas";
+      toggle.textContent = `${pasadasAbiertas ? "▾" : "▸"} Pasadas (${pasadas.length}) — últimos ${DIAS_PASADAS} días`;
+      toggle.addEventListener("click", () => {
+        pasadasAbiertas = !pasadasAbiertas;
+        render(visitasActuales);
+      });
+      cont.appendChild(toggle);
+
+      if(pasadasAbiertas){
+        const contPasadas = document.createElement("div");
+        contPasadas.style.marginTop = "12px";
+        agregarConSeparadores(contPasadas, pasadas, true);
+        cont.appendChild(contPasadas);
+      }
+    }
+  }
+
+  // Botones de las tarjetas (editar / reprogramar / borrar)
+  document.getElementById("lista-visitas").addEventListener("click", e => {
+    const btn = e.target.closest("[data-accion]");
+    if(!btn) return;
+    const id = btn.dataset.id;
+    if(btn.dataset.accion === "editar") editarVisita(id);
+    else if(btn.dataset.accion === "reprogramar") reprogramarVisita(id);
+    else if(btn.dataset.accion === "borrar") borrarVisita(id);
+  });
+
+  // Si la app queda abierta de un día para el otro, se reacomoda sola al cambiar el día.
+  let ultimoDiaRender = fechaHoyStr();
+  setInterval(() => {
+    const hoy = fechaHoyStr();
+    if(hoy !== ultimoDiaRender){
+      ultimoDiaRender = hoy;
+      render(visitasActuales);
+    }
+  }, 5 * 60 * 1000);
+
+  function borrarVisita(id){
+    if(!confirm("¿Borrar esta visita?")) return;
+    coleccionVisitas.doc(id).delete();
+  }
+
+  // ---- Formulario plegable ----
+  const cardForm = document.getElementById("card-form");
+  const btnNuevaVisita = document.getElementById("btn-nueva-visita");
+
+  function abrirForm(){
+    cardForm.style.display = "block";
+    btnNuevaVisita.style.display = "none";
+    cardForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function cerrarForm(){
+    cardForm.style.display = "none";
+    btnNuevaVisita.style.display = "block";
+  }
+
+  btnNuevaVisita.addEventListener("click", () => {
+    cancelarEdicion();
+    abrirForm();
+    document.getElementById("direccion").focus();
+  });
+
+  function editarVisita(id){
+    const v = visitasActuales.find(x => x.id === id);
+    if(!v) return;
+    idVisitaEditando = id;
+    document.getElementById("direccion").value = v.direccion || "";
+    document.getElementById("fecha").value = v.fecha || "";
+    setearHoraForm(v.hora || "");
+    document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
+    setearTelefonoInteresadoForm(v.telefonoInteresado || "");
+    setearResponsablesForm(responsablesDe(v));
+    document.getElementById("notas").value = v.notas || "";
+
+    document.getElementById("titulo-form-visita").textContent = "Editar visita";
+    document.getElementById("btn-guardar-visita").textContent = "Guardar cambios";
+    document.getElementById("aviso-form-visita").textContent =
+      "Si cambiás el día, la hora o los asignados, les llega el aviso al celu y los recordatorios se reprograman solos.";
+    abrirForm();
+  }
+
+  // Reprogramar = editar, pero con día y hora vacíos para obligar a elegir los nuevos.
+  function reprogramarVisita(id){
+    editarVisita(id);
+    document.getElementById("fecha").value = "";
+    setearHoraForm("");
+    document.getElementById("titulo-form-visita").textContent = "Reprogramar visita";
+    document.getElementById("btn-guardar-visita").textContent = "Guardar nueva fecha";
+    document.getElementById("aviso-form-visita").textContent =
+      "Elegí el nuevo día y hora. La visita vuelve a \"Próximas\", les avisa a los asignados y los recordatorios se reprograman solos.";
+  }
+
+  function cancelarEdicion(){
+    idVisitaEditando = null;
+    document.getElementById("form-visita").reset();
+    setearResponsablesForm([]);
+    document.getElementById("titulo-form-visita").textContent = "Cargar nueva visita";
+    document.getElementById("btn-guardar-visita").textContent = "Guardar visita";
+    document.getElementById("aviso-form-visita").textContent =
+      "Al guardar, a los asignados les llega la notificación al celu.";
+  }
+
+  document.getElementById("btn-cancelar-edicion").addEventListener("click", () => {
+    cancelarEdicion();
+    cerrarForm();
+  });
+
+  function textoVisita(v){
+    return `${v.direccion} — ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} ${v.hora}hs (${v.nombreInteresado})`;
+  }
+
+  document.getElementById("form-visita").addEventListener("submit", function(e){
+    e.preventDefault();
+    const horaElegida = leerHoraForm();
+    if(!horaElegida){ alert("Elegí la hora y los minutos de la visita."); return; }
+    const responsablesElegidos = leerResponsablesForm();
+    if(!responsablesElegidos.length){ alert("Tildá al menos un responsable para la visita."); return; }
+    const datosVisita = {
+      direccion: document.getElementById("direccion").value.trim(),
+      fecha: document.getElementById("fecha").value,
+      hora: horaElegida,
+      nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
+      telefonoInteresado: leerTelefonoInteresado(),
+      responsable: responsablesElegidos[0],
+      responsables: responsablesElegidos,
+      notas: document.getElementById("notas").value.trim()
+    };
+
+    if(idVisitaEditando){
+      const anterior = visitasActuales.find(x => x.id === idVisitaEditando) || {};
+      const cambioHorario = anterior.fecha !== datosVisita.fecha || anterior.hora !== datosVisita.hora;
+      const antes = responsablesDe(anterior);
+      const ahora = datosVisita.responsables;
+      const agregados = ahora.filter(n => !antes.includes(n));
+      const sacados = antes.filter(n => !ahora.includes(n));
+      const siguen = ahora.filter(n => antes.includes(n));
+
+      // Los flags de recordatorio solo se resetean si cambió el día/hora,
+      // así no se repiten avisos que ya se mandaron.
+      const cambios = { ...datosVisita };
+      if(cambioHorario){
+        cambios.recordatorioEnviado = false;
+        cambios.recordatorio2hEnviado = false;
+      }
+
+      coleccionVisitas.doc(idVisitaEditando).update(cambios).then(() => {
+        agregados.forEach(n => avisarPorPush(n, "Nueva visita asignada 📍", textoVisita(datosVisita)));
+        sacados.forEach(n => avisarPorPush(n, "Visita reasignada 🔄",
+          `${datosVisita.direccion} ahora la toma${ahora.length > 1 ? "n" : ""} ${ahora.join(" y ")}`));
+        if(cambioHorario){
+          siguen.forEach(n => avisarPorPush(n, "Visita reprogramada 🔄", textoVisita(datosVisita)));
+        }
+        cancelarEdicion();
+        cerrarForm();
+      }).catch(err => alert("No se pudo guardar los cambios. Revisá la conexión.\n" + err.message));
+      return;
+    }
+
+    const nuevaVisita = {
+      ...datosVisita,
+      creado: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    coleccionVisitas.add(nuevaVisita).then(() => {
+      this.reset();
+      setearResponsablesForm([]);
+      cerrarForm();
+      nuevaVisita.responsables.forEach(n => avisarPorPush(n, "Nueva visita asignada 📍", textoVisita(nuevaVisita)));
+    }).catch(err => alert("No se pudo guardar la visita. Revisá la conexión.\n" + err.message));
+  });
+
+</script>
+
+</body>
+</html>
