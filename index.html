@@ -359,6 +359,17 @@
       </div>
       <p class="aviso" style="margin-top:4px;">"549" = celular de Argentina. Cambialo solo si el número es de otro país.</p>
 
+      <label for="nombre-contacto">Contacto para entrar <span style="font-weight:400; color:var(--texto-suave);">(dueño/inquilino — opcional)</span></label>
+      <input type="text" id="nombre-contacto" placeholder="Ej: Juan (inquilino) — dejar vacío si no hace falta">
+
+      <label for="telefono-contacto">Teléfono de esa persona</label>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <span style="color:var(--texto-suave); font-weight:600;">+</span>
+        <input type="tel" id="telefono-contacto-prefijo" value="549" inputmode="numeric" title="Prefijo del país (549 = Argentina celular)" style="width:64px; text-align:center;">
+        <input type="tel" id="telefono-contacto" placeholder="Ej: 2214567890" inputmode="numeric" style="flex:1;">
+      </div>
+      <p class="aviso" style="margin-top:4px;">Completalo solo si para esa propiedad hay que avisarle antes al dueño o inquilino para que esté o deje abierto.</p>
+
       <label>Asignar a <span style="font-weight:400; color:var(--texto-suave);">(podés tildar más de uno)</span></label>
       <div id="responsables" class="chips-responsables"></div>
 
@@ -559,6 +570,26 @@
       // No coincide con el prefijo por defecto (puede ser de otro país): mostramos el número completo tal cual.
       inputPrefijoInteresado.value = "";
       inputTelInteresado.value = numero;
+    }
+  }
+
+  // Contacto opcional para avisar antes de entrar (dueño o inquilino de la propiedad).
+  const inputPrefijoContacto = document.getElementById("telefono-contacto-prefijo");
+  const inputTelContacto = document.getElementById("telefono-contacto");
+
+  function leerTelefonoContacto(){
+    const prefijo = inputPrefijoContacto.value.replace(/\D/g, "");
+    const soloNumeros = inputTelContacto.value.replace(/\D/g, "");
+    return soloNumeros ? prefijo + soloNumeros : "";
+  }
+  function setearTelefonoContactoForm(numero){
+    if(!numero){ inputTelContacto.value = ""; return; }
+    const prefijoActual = inputPrefijoContacto.value.replace(/\D/g, "") || "549";
+    if(numero.startsWith(prefijoActual)){
+      inputTelContacto.value = numero.slice(prefijoActual.length);
+    } else {
+      inputPrefijoContacto.value = "";
+      inputTelContacto.value = numero;
     }
   }
 
@@ -813,6 +844,11 @@
     return encodeURIComponent(linea);
   }
 
+  function armarMensajeWspContacto(v){
+    const linea = `Hola ${v.nombreContacto}! Te escribo de Miguez Propiedades — tenemos una visita agendada en ${v.direccion} el ${diaSemana(v.fecha)} ${formatearFecha(v.fecha)} a las ${v.hora}hs. ¿Nos confirmás que vas a poder estar o dejar abierto?`;
+    return encodeURIComponent(linea);
+  }
+
   function linkMapa(direccion){
     return "https://www.google.com/maps/search/?api=1&query=" +
       encodeURIComponent(direccion + ", La Plata, Buenos Aires");
@@ -856,6 +892,9 @@
     const linkWspInteresado = v.telefonoInteresado
       ? `https://wa.me/${v.telefonoInteresado}?text=${armarMensajeWspInteresado(v)}`
       : "";
+    const linkWspContacto = v.telefonoContacto
+      ? `https://wa.me/${v.telefonoContacto}?text=${armarMensajeWspContacto(v)}`
+      : "";
     const color = COLOR_RESPONSABLE[responsables[0]] || COLOR_RESPONSABLE_DEFAULT;
     const id = esc(v.id);
 
@@ -864,11 +903,15 @@
          <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`
       : `${botonesWspEquipo}
          ${linkWspInteresado ? `<a class="btn-wsp" href="${esc(linkWspInteresado)}" target="_blank" rel="noopener">Al interesado</a>` : ""}
+         ${linkWspContacto ? `<a class="btn-wsp" href="${esc(linkWspContacto)}" target="_blank" rel="noopener">🔑 Avisar a ${esc(v.nombreContacto)}</a>` : ""}
          <button type="button" class="btn-editar" data-accion="editar" data-id="${id}">✎</button>
          <button type="button" class="btn-borrar" data-accion="borrar" data-id="${id}">✕</button>`;
 
     const telefono = v.telefonoInteresado
       ? ` · 📞 <a href="tel:+${esc(v.telefonoInteresado)}">${esc(v.telefonoInteresado)}</a>`
+      : "";
+    const contactoLinea = v.nombreContacto
+      ? `<div class="visita-notas">🔑 Avisar antes: ${esc(v.nombreContacto)}${v.telefonoContacto ? ` · <a href="tel:+${esc(v.telefonoContacto)}">${esc(v.telefonoContacto)}</a>` : ""}</div>`
       : "";
 
     const div = document.createElement("div");
@@ -891,6 +934,7 @@
         <div class="visita-cuando">${esc(v.hora)}hs</div>
       </div>
       <div class="visita-datos">👤 ${esc(v.nombreInteresado)}${telefono}</div>
+      ${contactoLinea}
       ${v.notas ? `<div class="visita-notas">📝 ${esc(v.notas)}</div>` : ""}
       <div class="visita-acciones">${acciones}</div>
     `;
@@ -1020,6 +1064,8 @@
     setearHoraForm(v.hora || "");
     document.getElementById("nombre-interesado").value = v.nombreInteresado || "";
     setearTelefonoInteresadoForm(v.telefonoInteresado || "");
+    document.getElementById("nombre-contacto").value = v.nombreContacto || "";
+    setearTelefonoContactoForm(v.telefonoContacto || "");
     setearResponsablesForm(responsablesDe(v));
     document.getElementById("notas").value = v.notas || "";
 
@@ -1072,6 +1118,8 @@
       hora: horaElegida,
       nombreInteresado: document.getElementById("nombre-interesado").value.trim(),
       telefonoInteresado: leerTelefonoInteresado(),
+      nombreContacto: document.getElementById("nombre-contacto").value.trim(),
+      telefonoContacto: leerTelefonoContacto(),
       responsable: responsablesElegidos[0],
       responsables: responsablesElegidos,
       notas: document.getElementById("notas").value.trim()
