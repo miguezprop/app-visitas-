@@ -399,6 +399,12 @@
     <p class="aviso">Cada vez que a alguien le llega un aviso, su celular lo confirma solo. Si a alguien le mandamos un aviso y no lo confirmó, o si en su celular se desactivaron las notificaciones, va a aparecer en rojo acá — así lo detectamos antes de que se pierda una visita. Si no tuvo ningún aviso para confirmar últimamente, no cuenta como problema.</p>
     <div id="lista-estado-notificaciones"></div>
   </details>
+
+  <details class="card" id="panel-borradas">
+    <summary>🗑️ Visitas borradas</summary>
+    <p class="aviso">Queda un registro de quién borró cada visita y cuándo, para poder rastrearlo.</p>
+    <div id="lista-visitas-borradas"></div>
+  </details>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -424,6 +430,7 @@
   const auth = firebase.auth();
   const coleccionVisitas = db.collection("visitas");
   const coleccionDispositivos = db.collection("dispositivos");
+  const coleccionVisitasBorradas = db.collection("visitasBorradas");
 
   const CLAVE_QUIEN_SOY = "visitas_quien_soy";
   const CLAVE_DEVICE_ID = "visitas_device_id";
@@ -471,6 +478,7 @@
     }
     if(quienSoy) activarNotificaciones(quienSoy);
     cargarEstadoNotificaciones();
+    cargarVisitasBorradas();
   }
 
   auth.onAuthStateChanged(user => {
@@ -729,6 +737,27 @@
     return `hace ${dias} día${dias === 1 ? "" : "s"}`;
   }
 
+  function cargarVisitasBorradas(){
+    const cont = document.getElementById("lista-visitas-borradas");
+    if(!cont) return;
+    coleccionVisitasBorradas.orderBy("borradoEn", "desc").limit(20).get().then(snap => {
+      if(snap.empty){
+        cont.innerHTML = `<div class="vacio">Todavía no se borró ninguna visita.</div>`;
+        return;
+      }
+      cont.innerHTML = snap.docs.map(doc => {
+        const b = doc.data();
+        const cuando = b.borradoEn ? formatearHaceCuanto(b.borradoEn.toDate()) : "";
+        return `<div style="padding:6px 0; border-bottom:1px solid var(--borde); font-size:0.82rem;">
+          <b>${esc(b.direccion || "(sin dirección)")}</b> — ${esc(b.fecha || "")} ${esc(b.hora || "")}hs<br>
+          <span style="color:var(--texto-suave);">borrada por ${esc(b.borradoPor || "desconocido")} ${cuando}</span>
+        </div>`;
+      }).join("");
+    }).catch(() => {
+      cont.innerHTML = `<div class="aviso">No se pudo cargar el registro de borradas.</div>`;
+    });
+  }
+
   function cargarEstadoNotificaciones(){
     const cont = document.getElementById("lista-estado-notificaciones");
     const resumen = document.getElementById("resumen-notificaciones");
@@ -913,6 +942,9 @@
     const contactoLinea = v.nombreContacto
       ? `<div class="visita-notas">🔑 Avisar antes: ${esc(v.nombreContacto)}${v.telefonoContacto ? ` · <a href="tel:+${esc(v.telefonoContacto)}">${esc(v.telefonoContacto)}</a>` : ""}</div>`
       : "";
+    const quienLaTocoLinea = v.editadoPor
+      ? `<div style="color:var(--texto-suave); font-size:0.72rem; margin-top:2px;">✎ editado por ${esc(v.editadoPor)}</div>`
+      : (v.creadoPor ? `<div style="color:var(--texto-suave); font-size:0.72rem; margin-top:2px;">creado por ${esc(v.creadoPor)}</div>` : "");
 
     const div = document.createElement("div");
     div.className = "visita" + (esPasada ? " pasada" : "");
@@ -936,6 +968,7 @@
       <div class="visita-datos">👤 ${esc(v.nombreInteresado)}${telefono}</div>
       ${contactoLinea}
       ${v.notas ? `<div class="visita-notas">📝 ${esc(v.notas)}</div>` : ""}
+      ${quienLaTocoLinea}
       <div class="visita-acciones">${acciones}</div>
     `;
     return div;
@@ -1032,7 +1065,18 @@
 
   function borrarVisita(id){
     if(!confirm("¿Borrar esta visita?")) return;
-    coleccionVisitas.doc(id).delete();
+    const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY) || "";
+    const v = visitasActuales.find(x => x.id === id);
+    const { id: _idViejo, ...datosSinId } = v || {};
+    coleccionVisitasBorradas.add({
+      ...datosSinId,
+      idOriginal: id,
+      borradoPor: quienSoy,
+      borradoEn: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {}).then(() => {
+      coleccionVisitas.doc(id).delete();
+      cargarVisitasBorradas();
+    });
   }
 
   // ---- Formulario plegable ----
@@ -1112,6 +1156,7 @@
     if(!horaElegida){ alert("Elegí la hora y los minutos de la visita."); return; }
     const responsablesElegidos = leerResponsablesForm();
     if(!responsablesElegidos.length){ alert("Tildá al menos un responsable para la visita."); return; }
+    const quienSoy = localStorage.getItem(CLAVE_QUIEN_SOY) || "";
     const datosVisita = {
       direccion: document.getElementById("direccion").value.trim(),
       fecha: document.getElementById("fecha").value,
@@ -1141,6 +1186,8 @@
         cambios.recordatorioEnviado = false;
         cambios.recordatorio2hEnviado = false;
       }
+      cambios.editadoPor = quienSoy;
+      cambios.editadoEn = firebase.firestore.FieldValue.serverTimestamp();
 
       coleccionVisitas.doc(idVisitaEditando).update(cambios).then(() => {
         agregados.forEach(n => avisarPorPush(n, "Nueva visita asignada 📍", textoVisita(datosVisita)));
@@ -1157,6 +1204,7 @@
 
     const nuevaVisita = {
       ...datosVisita,
+      creadoPor: quienSoy,
       creado: firebase.firestore.FieldValue.serverTimestamp()
     };
     coleccionVisitas.add(nuevaVisita).then(() => {
