@@ -24,3 +24,8 @@
   from = "/wa-resumen"
   to = "/.netlify/functions/wa-resumen"
   status = 200
+
+[[redirects]]
+  from = "/visitas-resumen"
+  to = "/.netlify/functions/visitas-resumen"
+  status = 200
