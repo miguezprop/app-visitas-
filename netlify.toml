@@ -13,3 +13,14 @@
 # cada 15 minutos, para detectar visitas que empiezan en ~2 horas
 [functions."recordatorio-2horas"]
   schedule = "*/15 * * * *"
+
+# Link de WhatsApp con seguimiento y su resumen mensual (informes a propietarios)
+[[redirects]]
+  from = "/wa"
+  to = "/.netlify/functions/wa"
+  status = 200
+
+[[redirects]]
+  from = "/wa-resumen"
+  to = "/.netlify/functions/wa-resumen"
+  status = 200

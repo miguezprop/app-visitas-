@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Consultas por WhatsApp – Miguez Propiedades</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--rojo:#C8102E;--tinta:#1F2328;--tinta2:#57606A;--linea:#E4E7EB;--fondo:#F6F7F9}
+*{box-sizing:border-box}
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:var(--fondo);color:var(--tinta);font-size:14px}
+.top{background:var(--rojo);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px}
+.top h1{font-size:17px;margin:0;font-weight:600}.top .marca{font-weight:700;letter-spacing:.06em;font-size:13px;opacity:.9}
+.top a{color:#fff;margin-left:auto;font-size:13px;cursor:pointer}
+.wrap{max-width:1000px;margin:0 auto;padding:20px}
+.card{background:#fff;border:1px solid var(--linea);border-radius:12px;padding:18px;margin-bottom:16px}
+h2{font-size:17px;margin:0 0 12px;font-weight:600}
+label{display:block;font-size:12px;color:var(--tinta2);margin-bottom:4px;font-weight:500}
+input,select{width:100%;border:1px solid var(--linea);border-radius:8px;padding:8px 10px;font:inherit}
+.btn{border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:500;background:var(--rojo);color:#fff;font:inherit}
+.btn.sec{background:#fff;color:var(--tinta);border:1px solid var(--linea)}
+.g{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:10px;align-items:end}
+@media(max-width:700px){.g{grid-template-columns:1fr}}
+.link{margin-top:12px;background:var(--fondo);border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:12.5px;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px;border-bottom:1px solid var(--linea);text-align:left}
+th{color:var(--tinta2);font-weight:500;font-size:12px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.muted{color:var(--tinta2);font-size:12px}
+.oculto{display:none}
+#login{max-width:360px;margin:60px auto}
+.err{color:var(--rojo);font-size:13px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="top"><div><div class="marca">MIGUEZ PROPIEDADES</div><h1>Consultas por WhatsApp</h1></div></div>
+
+<div class="wrap">
+  <div id="app">
+    <div class="card">
+      <h2>Crear link de WhatsApp para una propiedad</h2>
+      <div class="g">
+        <div><label>Código de Tokko</label><input id="gCod" placeholder="MAP6329901"></div>
+        <div><label>Dirección (opcional, aparece en el mensaje)</label><input id="gDir" placeholder="13 e/ 63 y 64"></div>
+        <div><label>Dónde lo vas a usar</label>
+          <select id="gOri"><option value="ig">Instagram</option><option value="pauta">Pauta (Meta Ads)</option><option value="web">Web</option><option value="catalogo">Catálogo WhatsApp</option><option value="otro">Otro</option></select></div>
+      </div>
+      <div id="gLink" class="link">Escribí el código para generar el link.</div>
+      <div style="margin-top:10px"><button class="btn" id="gCopiar">Copiar link</button></div>
+      <p class="muted">Cuando alguien toca el link, se cuenta la consulta y se abre el WhatsApp de la inmobiliaria con el mensaje ya escrito.</p>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">Consultas por propiedad</h2>
+        <div style="flex:1"></div>
+        <label style="margin:0">Mes</label><select id="fMes" style="width:auto"></select>
+      </div>
+      <div id="tabla" style="margin-top:12px" class="muted">Cargando…</div>
+      <p class="muted">El día 30 de cada mes estos números se pasan solos a la app de informes.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = location.origin + '/wa';
+const $ = s => document.querySelector(s);
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const ORIG={ig:'Instagram',pauta:'Pauta',web:'Web',catalogo:'Catálogo',otro:'Otro',directo:'Directo'};
+function link(){
+  const c=$('#gCod').value.trim().toUpperCase(); if(!c){ $('#gLink').textContent='Escribí el código para generar el link.'; return ''; }
+  const p=new URLSearchParams({p:c, o:$('#gOri').value}); const d=$('#gDir').value.trim(); if(d) p.set('d',d);
+  const l=BASE+'?'+p.toString(); $('#gLink').textContent=l; return l;
+}
+['#gCod','#gDir','#gOri'].forEach(s=>$(s).addEventListener('input',link));
+$('#gCopiar').onclick=async()=>{ const l=link(); if(!l) return; try{ await navigator.clipboard.writeText(l); $('#gCopiar').textContent='¡Copiado!'; setTimeout(()=>$('#gCopiar').textContent='Copiar link',1500);}catch(e){} };
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+const d=new Date(); const meses=[];
+for(let i=0;i<12;i++){ const x=new Date(d.getFullYear(), d.getMonth()-i, 1); meses.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')); }
+$('#fMes').innerHTML=meses.map(m=>`<option value="${m}">${MESES[+m.slice(5)-1]} ${m.slice(0,4)}</option>`).join('');
+$('#fMes').onchange=cargar;
+async function cargar(){
+  $('#tabla').textContent='Cargando…';
+  try{
+    const r=await fetch('/wa-resumen?mes='+$('#fMes').value); const j=await r.json();
+    const filas=Object.entries(j.consultas||{}).sort((a,b)=>b[1].total-a[1].total);
+    if(!filas.length){ $('#tabla').innerHTML='Sin consultas registradas en este mes.'; return; }
+    $('#tabla').innerHTML=`<table><thead><tr><th>Código</th><th>Detalle por origen</th><th class="n">Consultas</th></tr></thead><tbody>${
+      filas.map(([cod,v])=>`<tr><td><b>${esc(cod)}</b></td><td class="muted">${Object.keys(v).filter(k=>k!=='total').map(k=>`${esc(ORIG[k]||k)}: ${v[k]}`).join(' · ')}</td><td class="n"><b>${v.total}</b></td></tr>`).join('')
+    }</tbody></table>`;
+  }catch(e){ $('#tabla').textContent='No pude leer las consultas. Probá recargar.'; }
+}
+cargar();
+</script>
+</body>
+</html>
