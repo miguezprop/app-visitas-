@@ -55,7 +55,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <h2 style="margin:0">Consultas por propiedad</h2>
         <div style="flex:1"></div>
-        <label style="margin:0">Mes</label><select id="fMes" style="width:auto"></select>
+        <label style="margin:0">Período</label><select id="fMes" style="width:auto"></select>
       </div>
       <div id="tabla" style="margin-top:12px" class="muted">Cargando…</div>
       <p class="muted">El día 30 de cada mes estos números se pasan solos a la app de informes.</p>
@@ -78,12 +78,12 @@ $('#gCopiar').onclick=async()=>{ const l=link(); if(!l) return; try{ await navig
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
 const d=new Date(); const meses=[];
 for(let i=0;i<12;i++){ const x=new Date(d.getFullYear(), d.getMonth()-i, 1); meses.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')); }
-$('#fMes').innerHTML=meses.map(m=>`<option value="${m}">${MESES[+m.slice(5)-1]} ${m.slice(0,4)}</option>`).join('');
+$('#fMes').innerHTML='<option value="d30">Últimos 30 días</option>'+meses.map(m=>`<option value="${m}">${MESES[+m.slice(5)-1]} ${m.slice(0,4)}</option>`).join('');
 $('#fMes').onchange=cargar;
 async function cargar(){
   $('#tabla').textContent='Cargando…';
   try{
-    const r=await fetch('/wa-resumen?mes='+$('#fMes').value); const j=await r.json();
+    const v=$('#fMes').value; const r=await fetch(v==='d30'?'/wa-resumen?dias=30':'/wa-resumen?mes='+v); const j=await r.json();
     const filas=Object.entries(j.consultas||{}).sort((a,b)=>b[1].total-a[1].total);
     if(!filas.length){ $('#tabla').innerHTML='Sin consultas registradas en este mes.'; return; }
     $('#tabla').innerHTML=`<table><thead><tr><th>Código</th><th>Detalle por origen</th><th class="n">Consultas</th></tr></thead><tbody>${
