@@ -154,9 +154,11 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
     <div class="fila">
       <h2 style="margin:0">Propiedades en venta</h2>
       <div style="flex:1"></div>
+      <button class="btn sec" id="bSync">🔄 Actualizar desde Tokko</button>
       <button class="btn sec" id="bMesTodos">📋 Informes del mes</button>
       <button class="btn" id="bNueva">+ Nueva propiedad</button>
     </div>
+    <div id="syncInfo" class="muted chico" style="margin-top:8px"></div>
     <div id="bannerMes" class="aviso oculto" style="margin-top:14px;background:var(--verde-claro);color:var(--verde);cursor:pointer"></div>
     <div id="listaProps" class="grid-props"></div>
     <input type="file" id="fileRespaldo" accept=".json" class="oculto">
@@ -566,7 +568,7 @@ async function cargarLista(){
   const el = $('#listaProps');
   try{ PROPS = await datos.props(); }
   catch(e){ el.innerHTML = `<div class="card vacio" style="grid-column:1/-1">No pude leer los datos. ${e && e.code==='permission-denied' ? 'La base no dio permiso: revisá las reglas de Firestore.' : 'Probá recargar en un momento.'}</div>`; return; }
-  PROPS.sort((a,b)=>(a.direccion||'').localeCompare(b.direccion||''));
+  PROPS.sort((a,b)=>(!!a.bajaTokko-!!b.bajaTokko) || (a.direccion||'').localeCompare(b.direccion||''));
   if(!PROPS.length){ el.innerHTML = `<div class="card vacio" style="grid-column:1/-1"><b>Todavía no hay propiedades cargadas.</b><br>Empezá con “+ Nueva propiedad”, o traé las que ya tenías cargadas:<br><button class="btn" id="bRespaldo" style="margin-top:12px">⬆ Importar respaldo (.json)</button></div>`;
     $('#bRespaldo').onclick=()=>$('#fileRespaldo').click(); return; }
   el.innerHTML = PROPS.map(p=>{
@@ -574,12 +576,13 @@ async function cargarLista(){
     const u = p.ultimo;
     const r = u ? RECOS[u.rec] : null;
     const tag = r ? `<span class="tag ${r.color}">${r.icono} ${r.titulo}</span>` : `<span class="tag gris">Sin informes aún</span>`;
-    const pend = (!u || u.mes < hoyYM()) ? `<div class="chico" style="color:var(--ambar);margin-top:6px">Falta cargar ${nombreMes(hoyYM())}</div>` : '';
-    return `<div class="card prop" data-id="${esc(p.id)}">
+    const baja = p.bajaTokko ? `<div style="margin-top:6px"><span class="tag gris">Ya no está publicada en Tokko (desde ${esc(p.bajaTokko.split('-').reverse().join('/'))})</span></div>` : '';
+    const pend = (!p.bajaTokko && (!u || u.mes < hoyYM())) ? `<div class="chico" style="color:var(--ambar);margin-top:6px">Falta cargar ${nombreMes(hoyYM())}</div>` : '';
+    return `<div class="card prop" data-id="${esc(p.id)}"${p.bajaTokko?' style="opacity:.6"':''}>
       <h3>${esc(p.direccion)}</h3>
       <div class="muted chico">${esc([p.tipo,p.barrio].filter(Boolean).join(' · '))}${p.codigo?' · '+esc(p.codigo):''}</div>
       <div style="font-weight:600;margin:8px 0">${usd(n(p.precio))}${p.operacion==='Alquiler'?' <span class="muted chico">/ mes · alquiler</span>':''}</div>
-      ${tag}
+      ${tag}${baja}
       ${u?`<div class="muted chico" style="margin-top:6px">Último informe: ${nombreMes(u.mes)} · ${u.consultas} consultas · ${u.visitas} visitas</div>`:''}
       ${pend}
     </div>`;
@@ -784,7 +787,9 @@ async function abrirMesTodos(mes){
   $('#mtTabla').innerHTML='<div class="muted chico">Cargando propiedades…</div>'; $('#mtResumen').innerHTML='';
   try{ PROPS=await datos.props(); }catch(e){ $('#mtTabla').innerHTML='No pude leer los datos. Probá recargar.'; return; }
   MT=[];
-  for(const p of PROPS){ let hist=[]; try{ hist=await datos.meses(p.id); }catch(e){} MT.push({p, hist, m: hist.find(h=>h.mes===mes)||null}); }
+  for(const p of PROPS){ let hist=[]; try{ hist=await datos.meses(p.id); }catch(e){} const m=hist.find(h=>h.mes===mes)||null;
+    if(!m && p.bajaTokko && p.bajaTokko.slice(0,7) < mes) continue; // ya no estaba publicada ese mes
+    MT.push({p, hist, m}); }
   for(const it of MT){
     if(it.m && !it.m.rec){
       const a=analizar(it.p,it.m,it.hist); it.m.rec=a.rec; it.m.precioSug=a.sug; if(!(it.m.textoEditado && it.m.texto)){ it.m.texto=textoReco(a.rec,a,it.p,it.m); it.m.textoEditado=false; }
@@ -815,7 +820,7 @@ function pintarMesTodos(mes){
     MT.map((it,i)=>{ const m=it.m;
       if(!m) return `<tr><td><b>${esc(it.p.direccion)}</b></td><td colspan="6" class="muted">Sin borrador para este mes</td><td><button class="btn sec chico" data-crear="${i}">Crear</button></td></tr>`;
       const a=analizar(it.p,m,it.hist); const r=RECOS[m.rec||a.rec]; const f=faltantes(it);
-      return `<tr><td><b>${esc(it.p.direccion)}</b>${tocaTrimestral(it.p,mes)?' <span class="tag azul">📊 + trimestral</span>':''}<div class="muted chico">${esc(it.p.propietario||'')}</div></td><td class="n">${fmt(n(m.vistas))}</td><td class="n">${a.consultas}</td><td class="n">${m.cWa??'–'}</td><td class="n">${m.visitas??'–'}</td>
+      return `<tr><td><b>${esc(it.p.direccion)}</b>${it.p.bajaTokko?' <span class="tag gris">baja en Tokko</span>':''}${tocaTrimestral(it.p,mes)?' <span class="tag azul">📊 + trimestral</span>':''}<div class="muted chico">${esc(it.p.propietario||'')}</div></td><td class="n">${fmt(n(m.vistas))}</td><td class="n">${a.consultas}</td><td class="n">${m.cWa??'–'}</td><td class="n">${m.visitas??'–'}</td>
         <td><span class="tag ${r.color}">${r.icono} ${r.titulo}</span></td>
         <td>${f.length? f.map(x=>`<div class="chico" style="color:var(--ambar)">• ${x}</div>`).join('') : '<span class="tag verde">✓ listo</span>'}</td>
         <td style="white-space:nowrap"><button class="btn sec chico" data-mtver="${i}">Informe</button>${tocaTrimestral(it.p,mes)?` <button class="btn chico" data-mttri="${i}">📊 Trimestral</button>`:''} <button class="btn sec chico" data-mted="${i}">Completar</button></td></tr>`; }).join('')
@@ -1023,6 +1028,44 @@ $('#bPng').onclick=async()=>{
 };
 
 /* =========================================================
+   Sincronización con Tokko (función de Netlify sync-tokko)
+   Se hace sola una vez por día al abrir la página, y con el botón.
+   ========================================================= */
+let SYNC_CORRIENDO=false;
+function fechaHora(iso){ const d=new Date(iso); return d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+async function pintarSyncInfo(){
+  try{ const d=await FS.collection(CFG).doc('tokko').get(); const s=d.exists?d.data():null;
+    $('#syncInfo').textContent = s&&s.ultimaSync ? `Última actualización desde Tokko: ${fechaHora(s.ultimaSync)} (${s.total} publicadas).` : 'Todavía no se actualizó desde Tokko.';
+    return s; }catch(e){ return null; }
+}
+async function sincronizarTokko(manual){
+  if(SYNC_CORRIENDO || !auth.currentUser) return;
+  SYNC_CORRIENDO=true; const b=$('#bSync'); b.disabled=true; b.textContent='Actualizando…';
+  try{
+    const token=await auth.currentUser.getIdToken();
+    const r=await fetch('/.netlify/functions/sync-tokko',{method:'POST',headers:{Authorization:'Bearer '+token}});
+    let d={}; try{ d=await r.json(); }catch(e){}
+    if(!r.ok || !d.ok){ if(manual) toast('No se pudo actualizar: '+(d.error||('error '+r.status))); return; }
+    const partes=[];
+    if(d.nuevas.length) partes.push(`${d.nuevas.length} nueva${d.nuevas.length>1?'s':''}`);
+    if(d.bajas.length) partes.push(`${d.bajas.length} dada${d.bajas.length>1?'s':''} de baja`);
+    if(d.precios.length) partes.push(`${d.precios.length} con precio nuevo`);
+    if(d.vuelven.length) partes.push(`${d.vuelven.length} volvieron a publicarse`);
+    if(partes.length || manual) toast(partes.length ? 'Tokko: '+partes.join(', ') : 'Todo al día con Tokko');
+    if(d.bajasSuspendidas) toast('Tokko devolvió una lista incompleta: no se marcó ninguna baja.');
+    await pintarSyncInfo();
+    if(!$('#vLista').classList.contains('oculto')) cargarLista();
+  }catch(e){ if(manual) toast('No se pudo conectar para actualizar'); }
+  finally{ SYNC_CORRIENDO=false; b.disabled=false; b.textContent='🔄 Actualizar desde Tokko'; }
+}
+$('#bSync').onclick=()=>sincronizarTokko(true);
+async function syncDiaria(){
+  const s=await pintarSyncInfo();
+  const hoy=new Date(Date.now()-3*3600*1000).toISOString().slice(0,10);
+  if(!s || s.dia!==hoy) sincronizarTokko(false);
+}
+
+/* =========================================================
    Login, cierre por inactividad y arranque
    ========================================================= */
 const MIN_INACTIVIDAD = 15;
@@ -1041,7 +1084,7 @@ auth.onAuthStateChanged(user=>{
   if(user){
     $('#vLogin').classList.add('oculto'); $('#app').classList.remove('oculto'); $('#bSalir').classList.remove('oculto');
     $('#lPass').value='';
-    resetInactividad(); ir('vLista'); cargarLista();
+    resetInactividad(); ir('vLista'); cargarLista(); syncDiaria();
   } else {
     clearTimeout(timerInact);
     // al salir se borra todo lo que estaba en pantalla
