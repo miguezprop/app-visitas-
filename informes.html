@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Informes a propietarios – Miguez Propiedades</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<style>
+:root{
+  --rojo:#C8102E; --rojo-osc:#9E0C24; --rojo-claro:#FBEAEC;
+  --azul:#2F6DB5;
+  --tinta:#1F2328; --tinta2:#57606A; --tinta3:#8C959F;
+  --linea:#E4E7EB; --fondo:#F6F7F9; --sup:#FFFFFF;
+  --verde:#1A7F37; --verde-claro:#E6F4EA;
+  --ambar:#9A6700; --ambar-claro:#FFF4D6;
+  --azul-claro:#E8F0FA;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:var(--fondo);color:var(--tinta);font-size:14px}
+button,input,select,textarea{font:inherit}
+.top{background:var(--rojo);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:12px}
+.top h1{font-size:17px;margin:0;font-weight:600}
+.top .marca{font-weight:700;letter-spacing:.06em;font-size:13px;opacity:.9}
+.top .sp{flex:1}
+.top a{color:#fff;font-size:13px;opacity:.9}
+.wrap{max-width:1160px;margin:0 auto;padding:20px}
+.aviso{background:var(--ambar-claro);color:var(--ambar);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+.btn{border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:500;background:var(--rojo);color:#fff}
+.btn:hover{background:var(--rojo-osc)}
+.btn.sec{background:#fff;color:var(--tinta);border:1px solid var(--linea)}
+.btn.sec:hover{background:var(--fondo)}
+.btn.chico{padding:6px 10px;font-size:13px}
+.btn.peligro{background:#fff;color:var(--rojo);border:1px solid var(--rojo-claro)}
+.fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.card{background:var(--sup);border:1px solid var(--linea);border-radius:12px;padding:18px}
+.grid-props{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:14px}
+.prop{cursor:pointer;transition:box-shadow .15s}
+.prop:hover{box-shadow:0 4px 16px rgba(0,0,0,.07)}
+.prop h3{margin:0 0 4px;font-size:15px;font-weight:600}
+.muted{color:var(--tinta2)}
+.chico{font-size:12px}
+.tag{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600}
+.tag.verde{background:var(--verde-claro);color:var(--verde)}
+.tag.ambar{background:var(--ambar-claro);color:var(--ambar)}
+.tag.rojo{background:var(--rojo-claro);color:var(--rojo-osc)}
+.tag.azul{background:var(--azul-claro);color:#1d4f8a}
+.tag.gris{background:var(--fondo);color:var(--tinta2)}
+h2{font-size:18px;margin:0 0 12px;font-weight:600}
+h4{font-size:13px;margin:18px 0 8px;font-weight:600;color:var(--tinta2);text-transform:uppercase;letter-spacing:.04em}
+label{display:block;font-size:12px;color:var(--tinta2);margin-bottom:4px;font-weight:500}
+input,select,textarea{width:100%;border:1px solid var(--linea);border-radius:8px;padding:8px 10px;background:#fff;color:var(--tinta)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--rojo-claro);border-color:var(--rojo)}
+textarea{min-height:110px;resize:vertical;line-height:1.5}
+.campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.campos .ancho{grid-column:1/-1}
+.ayuda{font-size:11.5px;color:var(--tinta3);margin-top:3px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--linea)}
+th{color:var(--tinta2);font-weight:500;font-size:12px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.vacio{text-align:center;padding:40px 20px;color:var(--tinta2)}
+.oculto{display:none!important}
+.atras{background:none;border:0;color:var(--tinta2);cursor:pointer;padding:0;margin-bottom:12px;font-size:13px}
+.atras:hover{color:var(--rojo)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--tinta);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:9;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+.lado{display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start}
+@media(max-width:860px){.lado{grid-template-columns:1fr}}
+.modal-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}
+.modal{background:#fff;border-radius:12px;padding:20px;max-width:420px;width:100%}
+.login{max-width:360px;margin:60px auto}
+
+/* ===== INFORME ===== */
+.informe-wrap{overflow:auto}
+#informe{width:760px;background:#fff;margin:0 auto;font-family:Poppins,sans-serif;color:var(--tinta);border:1px solid var(--linea)}
+.inf-head{background:var(--rojo);color:#fff;padding:22px 28px;display:flex;justify-content:space-between;align-items:flex-end}
+.inf-head .m1{font-weight:700;font-size:22px;letter-spacing:.08em;line-height:1}
+.inf-head .m2{font-size:11px;letter-spacing:.3em;opacity:.85;margin-top:4px}
+.inf-head .tit{text-align:right;font-size:12px;opacity:.95}
+.inf-head .tit b{display:block;font-size:16px;font-weight:600}
+.inf-body{padding:22px 28px}
+.inf-prop{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--linea);padding-bottom:14px}
+.inf-prop .dir{font-size:17px;font-weight:600;line-height:1.3}
+.inf-prop .sub{font-size:12px;color:var(--tinta2);margin-top:3px}
+.inf-prop .per{font-size:12px;color:var(--tinta2);text-align:right;white-space:nowrap}
+.inf-prop .per b{display:block;color:var(--tinta);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.kpi{border:1px solid var(--linea);border-radius:10px;padding:12px 14px}
+.kpi .v{font-size:22px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11.5px;color:var(--tinta2);margin-top:3px}
+.kpis4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.kpi2{border:1px solid var(--linea);border-radius:10px;padding:12px 14px}
+.kpi2 .l{font-size:11.5px;color:var(--tinta2);font-weight:500}
+.kpi2 .v{font-size:24px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi2 .t{font-size:11.5px;color:var(--tinta3)}
+.kpi2 .d{font-size:11px;margin-top:4px;color:var(--tinta2)}
+.inf-sec{margin-top:20px}
+.inf-sec h5{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta2);margin:0 0 8px;font-weight:600}
+.leyenda{display:flex;gap:14px;font-size:11.5px;color:var(--tinta2);margin-bottom:4px}
+.leyenda i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.embudo{display:flex;align-items:stretch;gap:0;margin-top:4px}
+.emb{flex:1;text-align:center;padding:10px 4px;background:var(--fondo);border-radius:8px}
+.emb .v{font-size:18px;font-weight:600}
+.emb .l{font-size:11px;color:var(--tinta2)}
+.flecha{display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:10.5px;color:var(--tinta3);padding:0 6px;min-width:58px}
+.puntos{margin:0;padding-left:18px;line-height:1.6;font-size:13px}
+.puntos li{margin-bottom:3px}
+.reco{border-radius:10px;padding:14px 16px;margin-top:6px}
+.reco .rt{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
+.reco .rx{font-size:13px;line-height:1.6;margin-top:6px;white-space:pre-wrap}
+.reco.verde{background:var(--verde-claro)} .reco.verde .rt{color:var(--verde)}
+.reco.ambar{background:var(--ambar-claro)} .reco.ambar .rt{color:var(--ambar)}
+.reco.rojo{background:var(--rojo-claro)} .reco.rojo .rt{color:var(--rojo-osc)}
+.reco.azul{background:var(--azul-claro)} .reco.azul .rt{color:#1d4f8a}
+.inf-pie{border-top:1px solid var(--linea);margin-top:22px;padding:14px 28px 18px;display:flex;justify-content:space-between;font-size:11.5px;color:var(--tinta2);gap:16px}
+.inf-pie b{color:var(--tinta)}
+.tooltip{position:fixed;background:var(--tinta);color:#fff;font-size:12px;padding:6px 9px;border-radius:6px;pointer-events:none;z-index:10;display:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><div class="marca">MIGUEZ PROPIEDADES</div><h1>Informes de actividad para propietarios</h1></div>
+  <div class="sp"></div>
+  <a href="#" id="bSalir" class="oculto">Cerrar sesión</a>
+</div>
+
+<!-- ===== LOGIN ===== -->
+<div id="vLogin" class="login oculto">
+  <div class="card">
+    <h2>Ingresar</h2>
+    <p class="muted chico" style="margin:-6px 0 12px">Mismo usuario y contraseña que la app de Visitas.</p>
+    <form id="fLogin">
+      <label for="lEmail">Usuario</label>
+      <input type="email" id="lEmail" autocomplete="username" required>
+      <label for="lPass" style="margin-top:10px">Contraseña</label>
+      <input type="password" id="lPass" autocomplete="current-password" required>
+      <button class="btn" type="submit" style="width:100%;margin-top:14px">Ingresar</button>
+      <div id="lError" class="chico" style="color:var(--rojo);margin-top:8px"></div>
+    </form>
+  </div>
+</div>
+
+<div class="wrap oculto" id="app">
+
+  <!-- ===== LISTA ===== -->
+  <section id="vLista">
+    <div class="fila">
+      <h2 style="margin:0">Propiedades en venta</h2>
+      <div style="flex:1"></div>
+      <button class="btn sec" id="bMesTodos">📋 Informes del mes</button>
+      <button class="btn" id="bNueva">+ Nueva propiedad</button>
+    </div>
+    <div id="bannerMes" class="aviso oculto" style="margin-top:14px;background:var(--verde-claro);color:var(--verde);cursor:pointer"></div>
+    <div id="listaProps" class="grid-props"></div>
+    <input type="file" id="fileRespaldo" accept=".json" class="oculto">
+  </section>
+
+  <!-- ===== INFORMES DEL MES (todas las propiedades) ===== -->
+  <section id="vMesTodos" class="oculto">
+    <button class="atras" data-ir="lista">← Volver a propiedades</button>
+    <div class="card">
+      <div class="fila">
+        <h2 style="margin:0">Informes del mes</h2>
+        <select id="mtMes" style="width:auto"></select>
+        <div style="flex:1"></div>
+        <button class="btn sec chico" id="mtCrear">Crear borradores que faltan</button>
+      </div>
+      <div class="muted chico" style="margin-top:6px">Acá ves los informes del mes de todas las propiedades. Completá lo que figura como faltante, revisá cada informe y mandalo.</div>
+      <div id="mtResumen" class="fila" style="margin-top:12px"></div>
+      <div id="mtTabla" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- ===== PROPIEDAD ===== -->
+  <section id="vProp" class="oculto">
+    <button class="atras" data-ir="lista">← Volver a propiedades</button>
+    <div class="lado">
+      <div class="card">
+        <h2 id="pTitulo">Propiedad</h2>
+        <form id="fProp" class="campos" style="grid-template-columns:1fr 1fr">
+          <div class="ancho"><label>Link de la propiedad (Tokko / web / portal)</label><input name="link" placeholder="Pegá el link acá"><div class="ayuda">Si es de miguezpropiedades.com.ar o Tokko, el código se completa solo.</div></div>
+          <div class="ancho"><label>Dirección *</label><input name="direccion" required placeholder="Ej: 54 e/ 7 y 8 n° 625, 1° A"></div>
+          <div><label>Barrio / zona</label><input name="barrio" placeholder="City Bell, Gonnet…"></div>
+          <div><label>Tipo</label><select name="tipo"><option>Casa</option><option>Departamento</option><option>PH</option><option>Terreno</option><option>Lote</option><option>Local</option><option>Oficina</option><option>Cochera</option><option>Otro</option></select></div>
+          <div><label>Código (Tokko)</label><input name="codigo"></div>
+          <div><label>Fecha de publicación</label><input name="fechaPublicacion" type="date"></div>
+          <div><label>Operación</label><select name="operacion"><option>Venta</option><option>Alquiler</option></select></div>
+          <div><label>Moneda</label><select name="moneda"><option value="USD">USD</option><option value="ARS">$ (pesos)</option></select></div>
+          <div><label>Precio publicado *</label><input name="precio" type="number" min="0" step="500" required></div>
+          <div><label>m² cubiertos</label><input name="m2" type="number" min="0" step="1"></div>
+          <div class="ancho"><label>Valor de referencia de la zona (USD/m²)</label><input name="valorM2Mercado" type="number" min="0" step="10"><div class="ayuda">Promedio de comparables o de la tasación. Opcional, pero con este dato el informe puede decir si el precio está alto.</div></div>
+          <div><label>Propietario</label><input name="propietario"></div>
+          <div><label>WhatsApp propietario</label><input name="telPropietario" placeholder="221 555-1234"></div>
+          <div class="ancho fila" style="margin-top:4px">
+            <button class="btn" type="submit">Guardar datos</button>
+            <button class="btn peligro chico" type="button" id="bBorrarProp">Eliminar</button>
+          </div>
+        </form>
+      </div>
+      <div>
+        <div class="card">
+          <div class="fila"><h2 style="margin:0">Historial mensual</h2><div style="flex:1"></div><button class="btn sec" id="bImportar">⬆ Importar Excel de Tokko</button><button class="btn" id="bCargarMes">+ Cargar mes</button></div>
+          <input type="file" id="fileTokko" accept=".xls,.xlsx,.csv,.pdf" class="oculto">
+          <div class="ayuda" style="margin-top:6px">Excel de Tokko (propiedad → Estadísticas → “Descargar contactos”). Se cargan solos los números de cada mes.</div>
+          <div id="importRes" class="aviso oculto" style="margin:10px 0 0;background:var(--verde-claro);color:var(--verde)"></div>
+          <div id="historial" style="margin-top:10px"></div>
+        </div>
+        <div class="card oculto" id="waCard" style="margin-top:14px">
+          <h2>Link de WhatsApp de esta propiedad</h2>
+          <div class="muted chico" style="margin:-6px 0 10px">Usalo en Instagram, pauta y catálogo: cada vez que alguien lo toca se cuenta la consulta y se abre el WhatsApp de la inmobiliaria con el mensaje listo.</div>
+          <div class="fila"><select id="waOrigen" style="width:auto"><option value="ig">Instagram</option><option value="pauta">Pauta (Meta Ads)</option><option value="web">Web</option><option value="catalogo">Catálogo WhatsApp</option><option value="otro">Otro</option></select>
+          <button class="btn sec chico" id="bCopiarWaLink">Copiar link</button>
+          <a class="btn sec chico" href="/wa-panel.html" target="_blank" rel="noopener" style="text-decoration:none">Ver consultas por WhatsApp ↗</a></div>
+          <div id="waLink" class="ayuda" style="margin-top:8px;word-break:break-all;font-family:ui-monospace,monospace"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CARGAR MES ===== -->
+  <section id="vMes" class="oculto">
+    <button class="atras" data-ir="prop">← Volver a la propiedad</button>
+    <div class="card">
+      <h2 id="mTitulo">Cargar actividad del mes</h2>
+      <div class="muted chico" id="mSub" style="margin:-6px 0 12px"></div>
+      <form id="fMes">
+        <div class="campos">
+          <div><label>Mes</label><input name="mes" type="month" required></div>
+          <div><label>Precio publicado ese mes</label><input name="precio" type="number" min="0" step="500" required></div>
+        </div>
+        <h4>Exposición</h4>
+        <div class="campos">
+          <div><label>Vistas totales del aviso</label><input name="vistas" type="number" min="0"><div class="ayuda">No viene en el Excel de Tokko: sumá las vistas de los portales (ZonaProp, Argenprop, ML).</div></div>
+          <div><label>Fichas enviadas a clientes</label><input name="envios" type="number" min="0"><div class="ayuda">Emails + WhatsApp enviados desde Tokko.</div></div>
+          <div><label>¿Tuvo pauta este mes?</label><select name="pauta"><option value="no">No</option><option value="si">Sí</option></select></div>
+          <div><label>Inversión en pauta (ARS)</label><input name="inversionPauta" type="number" min="0"></div>
+        </div>
+        <h4>Consultas recibidas</h4>
+        <div class="campos">
+          <div><label>Web / portales</label><input name="cWeb" type="number" min="0"></div>
+          <div><label>WhatsApp</label><input name="cWa" type="number" min="0"></div>
+          <div><label>Teléfono</label><input name="cTel" type="number" min="0"></div>
+          <div><label>Otros (redes, cartel, oficina)</label><input name="cOtros" type="number" min="0"></div>
+        </div>
+        <h4>Resultado</h4>
+        <div class="campos">
+          <div><label>Visitas realizadas</label><input name="visitas" type="number" min="0"><div class="ayuda">Las ves en la app de Visitas.</div></div>
+          <div><label>Ofertas recibidas</label><input name="ofertas" type="number" min="0"></div>
+          <div><label>Mejor oferta (USD)</label><input name="ofertaMax" type="number" min="0" step="500"></div>
+          <div><label>¿Se reservó / vendió?</label><select name="reservada"><option value="no">No</option><option value="si">Sí</option></select></div>
+          <div><label>Fecha de reserva</label><input name="fechaReserva" type="date"></div>
+        </div>
+        <h4>Devoluciones de los interesados (opcional)</h4>
+        <div class="campos"><div class="ancho"><textarea name="devoluciones" style="min-height:70px" placeholder="Ej: dicen que el precio está alto para el estado; les gustó la ubicación; preguntan si acepta permuta…"></textarea></div></div>
+        <div class="fila" style="margin-top:16px"><button class="btn" type="submit">Guardar y generar informe →</button></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== INFORME ===== -->
+  <section id="vInforme" class="oculto">
+    <button class="atras" data-ir="prop">← Volver a la propiedad</button>
+    <div class="lado" style="grid-template-columns:320px 1fr">
+      <div class="card">
+        <h2>Recomendación</h2>
+        <label>Informe</label>
+        <select id="eTipo" style="margin-bottom:10px"><option value="mensual">Mensual</option><option value="trimestral">Trimestral (últimos 3 meses)</option><option value="completo">Desde la publicación</option></select>
+        <label>Decisión sugerida</label>
+        <select id="eRec">
+          <option value="mantener">Mantener precio</option>
+          <option value="mantener-alerta">Mantener 30 días más y revisar</option>
+          <option value="pauta">Sumar pauta / más exposición</option>
+          <option value="presentacion">Mejorar fotos y presentación</option>
+          <option value="bajar">Ajustar el precio</option>
+          <option value="negociar">Negociar la oferta</option>
+          <option value="reservada">Propiedad reservada / vendida</option>
+        </select>
+        <div style="margin-top:10px"><label>Precio sugerido (USD)</label><input id="ePrecioSug" type="number" step="500"></div>
+        <div style="margin-top:10px"><label>Texto para el propietario</label><textarea id="eTexto" style="min-height:170px"></textarea>
+        <div class="ayuda">Podés editarlo; se actualiza en el informe y queda guardado.</div></div>
+        <div class="fila" style="margin-top:8px"><button class="btn sec chico" id="bRegenerar">Volver al texto automático</button></div>
+        <h4>Enviar</h4>
+        <div class="fila" style="flex-direction:column;align-items:stretch">
+          <button class="btn" id="bPdf">Descargar PDF</button>
+          <button class="btn sec" id="bPng">Descargar como imagen</button>
+          <button class="btn sec" id="bCopiar">Copiar mensaje para WhatsApp</button>
+          <a class="btn sec" id="aWa" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Abrir WhatsApp del propietario</a>
+          <div class="ayuda" id="waAyuda"></div>
+        </div>
+      </div>
+      <div class="informe-wrap"><div id="informe"></div></div>
+    </div>
+  </section>
+</div>
+
+<div id="modal" class="modal-fondo oculto"><div class="modal"><div id="modalTxt"></div><div class="fila" style="margin-top:16px;justify-content:flex-end"><button class="btn sec" id="mNo">Cancelar</button><button class="btn" id="mSi">Sí, eliminar</button></div></div></div>
+<div id="toast" class="toast"></div>
+<div id="tip" class="tooltip"></div>
+
+<script>
+/* =========================================================
+   Firebase (proyecto "app-visitas"): login + base de datos.
+   Sin login no se lee ni se muestra ningún dato.
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDgLZgZIerwIgaY90v_Yz8HShJX5oSqT_o",
+  authDomain: "app-visitas-e4545.firebaseapp.com",
+  projectId: "app-visitas-e4545",
+  storageBucket: "app-visitas-e4545.firebasestorage.app",
+  messagingSenderId: "552690822086",
+  appId: "1:552690822086:web:fb2f5867f08b548dbba0c7"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const FS = firebase.firestore();
+FS.settings({ ignoreUndefinedProperties: true, merge: true });
+const COL = 'informes_propiedades';   // cada propiedad, con su subcolección "meses"
+const CFG = 'informes_config';
+
+function conTiempo(p, ms=15000){ return Promise.race([p, new Promise((_,r)=>setTimeout(()=>r({code:'timeout'}),ms))]) }
+const refProp = id => FS.collection(COL).doc(id);
+const refMeses = id => refProp(id).collection('meses');
+
+const datos = {
+  async props(){
+    const s = await conTiempo(FS.collection(COL).get());
+    return s.docs.map(d=>({id:d.id, ...d.data()}));
+  },
+  async guardarProp(id, obj){ await refProp(id).set(obj); },
+  async borrarProp(id){
+    const s = await refMeses(id).get();
+    for(const m of s.docs){ await m.ref.delete(); }
+    await refProp(id).delete();
+  },
+  async meses(id){
+    const s = await conTiempo(refMeses(id).get());
+    return s.docs.map(x=>({id:x.id, ...x.data()})).sort((a,b)=>a.mes.localeCompare(b.mes));
+  },
+  async guardarMes(id, mes, obj){ await refMeses(id).doc(mes).set(obj); },
+  async estado(){ const d=await conTiempo(FS.collection(CFG).doc('mensual').get()); return d.exists? d.data():null; },
+  async guardarEstado(o){ await FS.collection(CFG).doc('mensual').set(o); },
+  async borrarMes(id, mes){ await refMeses(id).doc(mes).delete(); }
+};
+
+/* =========================================================
+   Utilidades
+   ========================================================= */
+const $ = s=>document.querySelector(s);
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MESC = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const n = v => (v===''||v==null||isNaN(+v)) ? null : +v;
+const z = v => n(v)||0;
+const fmt = v => v==null ? '–' : Math.round(v).toLocaleString('es-AR');
+let CUR='USD';
+const usd = v => v==null ? '–' : (CUR==='ARS'?'$ ':'USD ') + Math.round(v).toLocaleString('es-AR');
+const pct = v => v==null ? '–' : (Math.round(v*10)/10).toLocaleString('es-AR')+'%';
+function nombreMes(ym){ const [y,m]=ym.split('-'); return MESES[+m-1]+' '+y }
+function mesCorto(ym){ const [y,m]=ym.split('-'); return MESC[+m-1]+' '+y.slice(2) }
+function hoyYM(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0') }
+function finDeMes(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y, m, 0) }
+function diasEntre(a,b){ return Math.max(0, Math.round((b - a)/86400000)) }
+function redondear(v, paso){ paso = paso || (CUR==='ARS'?10000:1000); return Math.round(v/paso)*paso }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function toast(t){ const e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('on'),2600) }
+function nuevoId(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6) }
+function confirmar(txt){ return new Promise(res=>{ $('#modalTxt').textContent=txt; $('#modal').classList.remove('oculto');
+  $('#mSi').onclick=()=>{$('#modal').classList.add('oculto');res(true)}; $('#mNo').onclick=()=>{$('#modal').classList.add('oculto');res(false)}; }) }
+function telWa(t){ let d=String(t||'').replace(/\D/g,''); if(!d) return ''; if(d.startsWith('54')) return d; if(d.startsWith('0')) d=d.slice(1); d=d.replace(/^(\d{2,4})15/,'$1'); return '549'+d }
+
+/* =========================================================
+   Análisis y recomendación
+   ========================================================= */
+const UMBRAL = { minVistas:150, minTasaConsulta:1.0, sobreMercado:8, diasAlerta:90 };
+// Ajuste sugerido en ventas según el precio (USD): hasta 100 mil 3%, de 100 a 200 mil 5%, más de 200 mil 6%
+const ESCALONES_BAJA = [ {hasta:100000, pct:0.03}, {hasta:200000, pct:0.05}, {hasta:Infinity, pct:0.06} ];
+function precioAjustado(precio, p){ if(p && p.moneda==='ARS') return redondear(precio*0.95); const e=ESCALONES_BAJA.find(x=>precio<=x.hasta); return redondear(precio*(1-e.pct), 1000); }
+const ALQ = { minConsultas:3, muchasVisitas:3 }; // alquileres: menos de 3 consultas en el mes = valor alto; 3 o más visitas = valor muy bien
+const RECOS = {
+  'mantener':        {titulo:'Mantener el precio', color:'verde', icono:'✓'},
+  'mantener-alerta': {titulo:'Mantener 30 días más y revisar', color:'ambar', icono:'◷'},
+  'pauta':           {titulo:'Sumar pauta para más exposición', color:'azul', icono:'↗'},
+  'presentacion':    {titulo:'Mejorar fotos y presentación', color:'ambar', icono:'✎'},
+  'bajar':           {titulo:'Ajustar el precio', color:'rojo', icono:'↓'},
+  'negociar':        {titulo:'Negociar la oferta recibida', color:'verde', icono:'⇄'},
+  'reservada':       {titulo:'Propiedad reservada', color:'verde', icono:'★'},
+};
+
+function analizar(p, m, hist){
+  CUR = p.moneda==='ARS' ? 'ARS' : 'USD';
+  const esAlq = p.operacion==='Alquiler';
+  const consultas = z(m.cWeb)+z(m.cWa)+z(m.cTel)+z(m.cOtros);
+  const vistas = n(m.vistas);
+  const precio = n(m.precio) ?? n(p.precio);
+  const hasta = new Date(Math.min(finDeMes(m.mes), new Date()));
+  const dias = p.fechaPublicacion ? diasEntre(new Date(p.fechaPublicacion+'T00:00:00'), hasta) : null;
+  const tasaC = vistas ? consultas/vistas*100 : null;
+  const tasaV = consultas ? z(m.visitas)/consultas*100 : null;
+  const pm2 = (n(p.m2) && precio) ? precio/n(p.m2) : null;
+  const ref = n(p.valorM2Mercado);
+  const difMerc = (pm2 && ref) ? (pm2/ref - 1)*100 : null;
+  const hasta_ = hist.filter(h=>h.mes<=m.mes);
+  const prev = hist.filter(h=>h.mes<m.mes).slice(-1)[0] || null;
+  const consultasDe = h => z(h.cWeb)+z(h.cWa)+z(h.cTel)+z(h.cOtros);
+  const tot = {
+    vistas: hasta_.reduce((s,h)=>s+z(h.vistas),0),
+    consultas: hasta_.reduce((s,h)=>s+consultasDe(h),0),
+    visitas: hasta_.reduce((s,h)=>s+z(h.visitas),0),
+    ofertas: hasta_.reduce((s,h)=>s+z(h.ofertas),0),
+  };
+  const varC = (prev && consultasDe(prev)>0) ? (consultas/consultasDe(prev)-1)*100 : null;
+  const varV = (prev && z(prev.vistas)>0 && vistas!=null) ? (vistas/z(prev.vistas)-1)*100 : null;
+
+  // --- Decisión ---
+  let rec='mantener', sug=null;
+  const vistasBajas = vistas!=null && (n(m.vistasProm)? vistas<n(m.vistasProm)*0.8 : vistas<UMBRAL.minVistas);
+  if(m.reservada){ rec='reservada'; }
+  else if(esAlq){
+    // Alquiler: manda la cantidad de consultas; después, las visitas.
+    if(z(m.ofertas)>0) rec='negociar';
+    else if(consultas<ALQ.minConsultas && vistasBajas && m.pauta!=='si') rec='pauta';
+    else if(consultas<ALQ.minConsultas){ rec='bajar'; sug=redondear(precio*0.93); }
+    else if(z(m.visitas)===0) rec='presentacion';
+    else rec='mantener';
+    if(sug!=null && sug>=precio) sug=redondear(precio*0.95);
+  }
+  else if(z(m.ofertas)>0) rec='negociar';
+  else if(difMerc!=null && difMerc>UMBRAL.sobreMercado){ rec='bajar'; sug=redondear(ref*n(p.m2)*1.03); }
+  else if(consultas>=3 && z(m.visitas)===0) rec='presentacion';
+  else if(vistas!=null && (n(m.vistasProm)? vistas<n(m.vistasProm)*0.8 : vistas<UMBRAL.minVistas) && m.pauta!=='si') rec='pauta';
+  else if(vistas!=null && (n(m.vistasProm)? vistas<n(m.vistasProm)*0.8 : vistas<UMBRAL.minVistas) && m.pauta==='si') rec='presentacion';
+  else if(tasaC!=null && tasaC<UMBRAL.minTasaConsulta){ rec='bajar'; sug=precioAjustado(precio,p); }
+  else if(consultas>=3 && z(m.visitas)===0) rec='presentacion';
+  else if(dias!=null && dias>UMBRAL.diasAlerta && tot.visitas<3){ rec='bajar'; sug=precioAjustado(precio,p); }
+  else if(dias!=null && dias>UMBRAL.diasAlerta) rec='mantener-alerta';
+  if(sug!=null && sug>=precio) sug=precioAjustado(precio,p);
+
+  // --- Puntos del análisis (hechos) ---
+  const pts=[];
+  const mesTxt = nombreMes(m.mes);
+  if(vistas!=null) pts.push(`En ${mesTxt} el aviso tuvo <b>${fmt(vistas)} vistas</b>${varV!=null?` (${varV>=0?'+':''}${pct(varV)} vs. el mes anterior)`:''}. Desde que se publicó acumula ${fmt(tot.vistas)}.`);
+  const desg=[]; if(z(m.cWeb)) desg.push(`${m.cWeb} por web/portales`); if(z(m.cWa)) desg.push(`${m.cWa} por WhatsApp`); if(z(m.cTel)) desg.push(`${m.cTel} telefónicas`); if(z(m.cOtros)) desg.push(`${m.cOtros} ${m.pauta==='si'?'por el formulario de la pauta en Meta':'por otros medios'}`);
+  pts.push(consultas ? `Recibimos <b>${consultas} consulta${consultas>1?'s':''}</b> (${desg.join(', ')})${varC!=null?`, ${varC>=0?'un '+pct(varC)+' más':'un '+pct(-varC)+' menos'} que el mes anterior`:''}.` : `Este mes <b>no recibimos consultas</b>.`);
+  if(tasaC!=null && vistas) pts.push(`De cada 100 personas que vieron el aviso, ${(Math.round(tasaC*10)/10).toLocaleString('es-AR')} consultaron${tasaC<UMBRAL.minTasaConsulta?' — es bajo: la ven, pero no la eligen para consultar':''}.`);
+  pts.push(z(m.visitas) ? `Se hicieron <b>${m.visitas} visita${m.visitas>1?'s':''}</b> a la propiedad (${fmt(tot.visitas)} en total).` : `No se concretaron visitas este mes${tot.visitas?` (${fmt(tot.visitas)} en total desde la publicación)`:''}.`);
+  if(z(m.ofertas)) pts.push(`Llegó <b>${m.ofertas} oferta${m.ofertas>1?'s':''}</b>${n(m.ofertaMax)?`; la mejor fue de ${usd(m.ofertaMax)} (${pct((n(m.ofertaMax)/precio-1)*-100)} por debajo del precio publicado)`:''}.`);
+  if(vistas!=null && n(m.vistasProm)) pts.push(`En Zonaprop, los avisos similares tienen en promedio <b>${fmt(n(m.vistasProm))} visualizaciones</b>: el de tu propiedad está ${vistas>=n(m.vistasProm)? 'por encima' : 'por debajo'} del promedio (${pct(Math.abs(vistas/n(m.vistasProm)-1)*100)}).`);
+  if(pm2 && p.operacion!=='Alquiler') pts.push(`El precio publicado equivale a <b>${usd(pm2)}/m²</b>${difMerc!=null?`, un ${pct(Math.abs(difMerc))} ${difMerc>=0?'por encima':'por debajo'} del valor de referencia de la zona (${usd(ref)}/m²)`:''}.`);
+  if(m.reservada) pts.push(`<b>La propiedad se reservó${m.fechaReserva?` el ${m.fechaReserva.split('-').reverse().join('/')}`:''}</b>${z(m.visitas)?', luego de una de las visitas del mes':''}.`);
+  if(dias!=null && !m.reservada) pts.push(`Lleva <b>${dias} días publicada</b>.`);
+  if(z(m.envios)) pts.push(`Enviamos la ficha a <b>${m.envios} cliente${m.envios>1?'s':''}</b> de nuestra base (por email y WhatsApp).`);
+  if(m.pauta==='si') pts.push(`Tuvo pauta paga durante el mes${n(m.inversionPauta)?` (inversión de $${fmt(m.inversionPauta)})`:''}.`);
+  if(m.devoluciones && m.devoluciones.trim()) pts.push(`Lo que nos dijeron los interesados: ${esc(m.devoluciones.trim())}`);
+
+  return {consultas, vistas, precio, dias, tasaC, tasaV, pm2, ref, difMerc, tot, prev, varC, varV, rec, sug, pts};
+}
+
+/* ===== Informe trimestral ===== */
+const TRI = { visitasFuertes:6, baja:0.05 };
+function mesesEntre(a,b){ const [y1,m1]=a.split('-').map(Number), [y2,m2]=b.split('-').map(Number); return (y2-y1)*12+(m2-m1); }
+function mesMenos(ym,k){ const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-1-k,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function tocaTrimestral(p, mes){ if(!p.fechaPublicacion) return false; const d=mesesEntre(p.fechaPublicacion.slice(0,7), mes); return d>=2 && (d+1)%3===0; }
+let VISTA_TIPO='mensual';
+let K={rec:'rec',sug:'precioSug',tx:'texto',ed:'textoEditado'};
+function setTipo(t){ VISTA_TIPO=t; K = t==='trimestral' ? {rec:'recT',sug:'precioSugT',tx:'textoT',ed:'textoEditadoT'} : t==='completo' ? {rec:'recC',sug:'precioSugC',tx:'textoC',ed:'textoEditadoC'} : {rec:'rec',sug:'precioSug',tx:'texto',ed:'textoEditado'}; }
+function mesPub(p, hist){ if(p.fechaPublicacion) return p.fechaPublicacion.slice(0,7); return hist.length? hist[0].mes : null; }
+function rangoMeses(ms){ if(!ms.length) return ''; const f=x=>MESES[+x.mes.slice(5)-1]; return ms.length===1? f(ms[0]) : f(ms[0])+' a '+f(ms[ms.length-1]); }
+function analizarTri(p, m, hist, completo){
+  const a=analizar(p,m,hist);
+  const desde=completo ? (mesPub(p,hist)||mesMenos(m.mes,2)) : mesMenos(m.mes,2);
+  const meses=hist.filter(h=>h.mes>=desde && h.mes<=m.mes);
+  const cons=h=>z(h.cWeb)+z(h.cWa)+z(h.cTel)+z(h.cOtros);
+  const sum=f=>meses.reduce((s,h)=>s+f(h),0);
+  const t={ vistas:sum(h=>z(h.vistas)), consultas:sum(cons), visitas:sum(h=>z(h.visitas)), ofertas:sum(h=>z(h.ofertas)), envios:sum(h=>z(h.envios)), n:meses.length };
+  const c0=meses.length?cons(meses[0]):0, c1=meses.length?cons(meses[meses.length-1]):0;
+  let rec, sug=null;
+  if(m.reservada) rec='reservada';
+  else if(t.ofertas>0) rec='negociar';
+  else if(p.operacion==='Alquiler') rec=a.rec;
+  else if(t.visitas>=TRI.visitasFuertes && c1>=c0) rec='mantener-alerta';
+  else { rec='bajar'; sug=(a.difMerc!=null && a.difMerc>0)? redondear(a.ref*n(p.m2)*1.03) : precioAjustado(a.precio,p); if(sug>=a.precio) sug=precioAjustado(a.precio,p); }
+  if(rec===a.rec && a.sug && !sug) sug=a.sug;
+  t.inversion=sum(h=>h.pauta==='si'?z(h.inversionPauta):0); t.mesesPauta=meses.filter(h=>h.pauta==='si').length;
+  const ptsT=[];
+  ptsT.push(`${completo?`Desde la publicación (${rangoMeses(meses)})`:`En los últimos ${t.n===3?'tres meses':t.n+' meses'} (${meses.map(h=>MESES[+h.mes.slice(5)-1]).join(', ')})`} el aviso sumó ${meses.every(h=>n(h.vistas)!=null)?`<b>${fmt(t.vistas)} vistas</b>, `:''}<b>${t.consultas} consultas</b> y <b>${t.visitas} visita${t.visitas===1?'':'s'}</b>${t.ofertas?`, con <b>${t.ofertas} oferta${t.ofertas>1?'s':''}</b>`:', sin ofertas'}.`);
+  if(completo){ const et=[]; meses.forEach(h=>{ const pr=n(h.precio)||a.precio; const u=et[et.length-1]; if(u&&u.precio===pr) u.ms.push(h); else et.push({precio:pr, ms:[h]}); });
+    if(et.length>1) et.forEach(e=>{ const c=e.ms.reduce((s,h)=>s+cons(h),0), v=e.ms.reduce((s,h)=>s+z(h.visitas),0), o=e.ms.reduce((s,h)=>s+z(h.ofertas),0); ptsT.push(`Con el precio en <b>${usd(e.precio)}</b> (${rangoMeses(e.ms)}): ${c} consultas y <b>${v} visita${v===1?'':'s'}</b>${o?`, ${o} oferta${o>1?'s':''}`:''}.`); }); }
+  else if(meses.length>1 && t.consultas===0) ptsT.push(`No ingresaron consultas nuevas en el trimestre.`);
+  else if(meses.length>1) ptsT.push(c1>c0?`Las consultas fueron en aumento: de ${c0} en ${MESES[+meses[0].mes.slice(5)-1]} a ${c1} en ${MESES[+meses[meses.length-1].mes.slice(5)-1]}.` : c1<c0?`Las consultas fueron bajando: de ${c0} en ${MESES[+meses[0].mes.slice(5)-1]} a ${c1} en ${MESES[+meses[meses.length-1].mes.slice(5)-1]}.` : `Las consultas se mantuvieron estables (${c1} por mes).`);
+  if(t.envios) ptsT.push(`Enviamos la ficha a <b>${t.envios} clientes</b> de nuestra base ${completo?'desde la publicación':'en el trimestre'}.`);
+  { const hs=hist.filter(h=>h.mes<=m.mes && n(h.precio)); for(let i=1;i<hs.length;i++){ const p0=n(hs[i-1].precio), p1=n(hs[i].precio); if(p1!==p0) ptsT.push(`En ${nombreMes(hs[i].mes)} el precio ${p1<p0?'bajó':'subió'} de ${usd(p0)} a ${usd(p1)}${p1<p0?` (${pct((1-p1/p0)*100)} menos)`:''}.`); } }
+  hist.filter(h=>h.mes<=m.mes && h.pauta==='si').forEach(h=>{ const det=[z(h.cWa)?`${z(h.cWa)} conversaciones por WhatsApp`:'', z(h.cOtros)?`${z(h.cOtros)} formularios`:''].filter(Boolean).join(z(h.visitas)?', ':' y '); ptsT.push(`En ${nombreMes(h.mes)} hicimos una campaña paga en Meta${n(h.inversionPauta)?` (inversión de $${fmt(n(h.inversionPauta))})`:''}${det?` que generó <b>${det}</b>`:''}${z(h.visitas)?` y <b>${z(h.visitas)} visita${z(h.visitas)>1?'s':''}</b> ese mes`:''}.`); });
+  if(completo && t.mesesPauta && t.mesesPauta<meses.length){ const con=meses.filter(h=>h.pauta==='si'), sin=meses.filter(h=>h.pauta!=='si'); const cc=con.reduce((x,h)=>x+cons(h),0), vc=con.reduce((x,h)=>x+z(h.visitas),0), cs=sin.reduce((x,h)=>x+cons(h),0), vs=sin.reduce((x,h)=>x+z(h.visitas),0);
+    ptsT.push(`<b>Con pauta</b> (${con.length} mes${con.length>1?'es':''}): ${cc} consultas y ${vc} visita${vc===1?'':'s'}. <b>Sin pauta</b> (${sin.length} mes${sin.length>1?'es':''}): ${cs===0?'no ingresaron consultas':cs+' consultas'} y ${vs===0?'ninguna visita':vs+' visita'+(vs===1?'':'s')}.`); }
+  if(completo && t.mesesPauta>1 && t.inversion) ptsT.push(`En total invertimos <b>$${fmt(t.inversion)}</b> en pauta, en ${t.mesesPauta} meses de campaña.`);
+  if(!completo) ptsT.push(`Desde la publicación, la propiedad acumula ${a.tot.consultas} consultas y ${a.tot.visitas} visitas${a.tot.ofertas?`, con ${a.tot.ofertas} ofertas`:', sin ofertas'}.`);
+  if(n(m.vistasProm) && a.vistas!=null) ptsT.push(`En Zonaprop, el aviso tuvo ${fmt(a.vistas)} visualizaciones el último mes contra un promedio de ${fmt(n(m.vistasProm))} en avisos similares.`);
+  if(a.pm2 && p.operacion!=='Alquiler') ptsT.push(`El precio publicado equivale a <b>${usd(a.pm2)}/m²</b>${a.difMerc!=null?`, un ${pct(Math.abs(a.difMerc))} ${a.difMerc>=0?'por encima':'por debajo'} del valor de referencia de la zona`:''}.`);
+  if(m.reservada) ptsT.push(`<b>La propiedad se reservó${m.fechaReserva?` el ${m.fechaReserva.split('-').reverse().join('/')}`:''}</b>.`);
+  else if(a.dias!=null) ptsT.push(`Lleva <b>${a.dias} días publicada</b>.`);
+  return {...a, t, meses, desde, rec, sug, pts:ptsT, trimestral:true, completo:!!completo};
+}
+function textoRecoTri(rec, A, p, m){
+  const t=A.t; const sug=A.sug?usd(A.sug):null;
+  if(A.completo && p.operacion!=='Alquiler'){
+    if(rec==='bajar') return `Desde que publicamos, la propiedad generó ${t.consultas} consultas y ${t.visitas} visita${t.visitas===1?'':'s'}${t.mesesPauta?`, con ${t.mesesPauta} mes${t.mesesPauta>1?'es':''} de pauta en redes`:''}, pero todavía no llegó ninguna oferta. El interés existe, lo que falta es que el precio acompañe${A.meses.some((h,i)=>i&&n(h.precio)&&n(A.meses[i-1].precio)&&n(h.precio)<n(A.meses[i-1].precio))?': cuando bajamos el valor, las visitas aumentaron':''}. Nuestra recomendación es ajustar el precio${sug?` a ${sug}`:' levemente'} y acompañarlo con una nueva campaña, para convertir ese interés en una oferta concreta.`;
+    if(rec==='mantener-alerta') return `Desde que publicamos, la propiedad tuvo buena respuesta: ${t.consultas} consultas y ${t.visitas} visitas. Todavía no llegó una oferta, por lo que recomendamos sostener el precio un mes más y, si no aparece una propuesta, revisar el valor.`;
+  }
+  if(p.operacion!=='Alquiler'){
+    if(rec==='bajar') return `En estos tres meses el aviso tuvo ${t.consultas} consultas y ${t.visitas} visita${t.visitas===1?'':'s'}, pero todavía no recibimos ofertas. Con este nivel de respuesta, el mercado nos está indicando que el precio quedó por encima de lo que hoy se paga por propiedades similares. Nuestra recomendación es ajustar el precio${sug?` a ${sug}`:' levemente'}, para reactivar el interés y llegar a una oferta concreta en los próximos meses.`;
+    if(rec==='mantener-alerta') return `En estos tres meses la propiedad tuvo buena respuesta: ${t.consultas} consultas y ${t.visitas} visitas, con interés sostenido. Todavía no llegó una oferta, por lo que recomendamos sostener el precio un mes más y, si no aparece una propuesta, revisar el valor en el próximo informe.`;
+  }
+  return textoReco(rec, A, p, m);
+}
+function anaActual(){ return VISTA_TIPO==='trimestral' ? analizarTri(ACTUAL,MES_ACTUAL,HIST) : VISTA_TIPO==='completo' ? analizarTri(ACTUAL,MES_ACTUAL,HIST,true) : analizar(ACTUAL,MES_ACTUAL,HIST); }
+function textoActual(rec, A){ return A.trimestral ? textoRecoTri(rec,A,ACTUAL,MES_ACTUAL) : textoReco(rec,A,ACTUAL,MES_ACTUAL); }
+
+function textoReco(rec, a, p, m){
+  CUR = p.moneda==='ARS' ? 'ARS' : 'USD';
+  const sug = a.sug ? usd(a.sug) : null;
+  if(rec==='reservada') return p.operacion==='Alquiler'
+    ? `¡Buenas noticias! La propiedad quedó reservada${m.fechaReserva?` el ${m.fechaReserva.split('-').reverse().join('/')}`:''}. Ahora avanzamos con la documentación de garantía y la firma del contrato; te vamos avisando cada paso.`
+    : `¡Buenas noticias! La propiedad quedó reservada${m.fechaReserva?` el ${m.fechaReserva.split('-').reverse().join('/')}`:''}. Ahora avanzamos con los pasos para el boleto; te vamos avisando cada paso.`;
+  if(p.operacion==='Alquiler') switch(rec){
+    case 'negociar': return `Hay un interesado concreto en alquilarla. Te proponemos avanzar esta semana con la reserva y la documentación de garantía para no perder al candidato.`;
+    case 'bajar': return `El aviso se está viendo, pero recibió pocas consultas en el mes (${a.consultas}), y en alquileres eso suele indicar que el valor quedó por encima de lo que hoy se paga en la zona. Recomendamos ajustar el valor del alquiler${sug?` a ${sug} mensuales`:' levemente'}, para quedar en línea con lo que hoy se alquila en la zona.`;
+    case 'pauta': return `El aviso está llegando a poca gente y por eso todavía hay pocas consultas. Antes de tocar el valor, te recomendamos sumar pauta paga en redes durante el próximo mes y volver a medir en 30 días.`;
+    case 'presentacion': return `La propiedad genera consultas pero no se están concretando visitas. Te proponemos renovar fotos y descripción del aviso, y revisar con vos los requisitos que estamos pidiendo. Si en 30 días no mejora, vamos a revisar el valor.`;
+    case 'mantener-alerta': return `Hay movimiento (consultas y visitas), pero todavía sin reserva. Recomendamos sostener el valor 30 días más; si en el próximo informe no aparece un interesado firme, conviene revisarlo.`;
+    default: return z(m.visitas)>=ALQ.muchasVisitas
+      ? `La propiedad está respondiendo muy bien: tuvo ${a.consultas} consultas y ${z(m.visitas)} visitas en el mes, señal de que el valor está bien ubicado. Recomendamos mantenerlo y seguir mostrando hasta concretar.`
+      : `El valor está bien ubicado: la propiedad recibe consultas (${a.consultas} en el mes) y se están concretando visitas. Recomendamos mantener el valor y seguir mostrándola.`;
+  }
+  switch(rec){
+    case 'negociar': return `Recibimos una oferta concreta${n(m.ofertaMax)?` de ${usd(m.ofertaMax)}`:''}. Te proponemos que la conversemos esta semana para definir una contraoferta: hay un comprador interesado y es el mejor momento para cerrar.`;
+    case 'bajar': return `La propiedad está teniendo exposición, pero el interés no se está convirtiendo en visitas y ofertas. Nuestra recomendación es ajustar el precio${sug?` a ${sug}`:' levemente'}, para quedar en línea con lo que hoy se está vendiendo en la zona y reactivar las consultas.`;
+    case 'pauta': return `El aviso está llegando a poca gente. Antes de tocar el precio, te recomendamos sumar pauta paga en redes durante el próximo mes para multiplicar la exposición, y volver a medir en 30 días.`;
+    case 'presentacion': return `La propiedad genera interés pero no está logrando que se concreten visitas. Te proponemos renovar fotos y video, y mejorar la descripción del aviso. Si en 30 días no mejora, vamos a revisar el precio.`;
+    case 'mantener-alerta': return `Hay movimiento (consultas y visitas), pero todavía sin ofertas. Recomendamos sostener el precio 30 días más; si en el próximo informe no aparece una oferta, conviene revisar el valor.`;
+    default: return `La propiedad viene respondiendo bien: hay consultas y visitas en línea con lo esperable. Recomendamos mantener el precio y la estrategia actual, y seguir midiendo mes a mes.`;
+  }
+}
+
+/* =========================================================
+   Estado y navegación
+   ========================================================= */
+let PROPS=[], ACTUAL=null, HIST=[], MES_ACTUAL=null, VOLVER_A=null;
+
+function ir(v){
+  ['vLista','vProp','vMes','vInforme','vMesTodos'].forEach(id=>$('#'+id).classList.toggle('oculto', id!==v));
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('[data-ir]').forEach(b=>b.onclick=()=>{
+  if(b.dataset.ir==='lista'){ VOLVER_A=null; cargarLista(); ir('vLista'); }
+  else if(VOLVER_A==='mes' && b.closest('#vInforme')){ abrirMesTodos($('#mtMes').value); }
+  else abrirProp(ACTUAL.id);
+});
+
+async function cargarLista(){
+  const el = $('#listaProps');
+  try{ PROPS = await datos.props(); }
+  catch(e){ el.innerHTML = `<div class="card vacio" style="grid-column:1/-1">No pude leer los datos. ${e && e.code==='permission-denied' ? 'La base no dio permiso: revisá las reglas de Firestore.' : 'Probá recargar en un momento.'}</div>`; return; }
+  PROPS.sort((a,b)=>(a.direccion||'').localeCompare(b.direccion||''));
+  if(!PROPS.length){ el.innerHTML = `<div class="card vacio" style="grid-column:1/-1"><b>Todavía no hay propiedades cargadas.</b><br>Empezá con “+ Nueva propiedad”, o traé las que ya tenías cargadas:<br><button class="btn" id="bRespaldo" style="margin-top:12px">⬆ Importar respaldo (.json)</button></div>`;
+    $('#bRespaldo').onclick=()=>$('#fileRespaldo').click(); return; }
+  el.innerHTML = PROPS.map(p=>{
+    CUR = p.moneda==='ARS' ? 'ARS' : 'USD';
+    const u = p.ultimo;
+    const r = u ? RECOS[u.rec] : null;
+    const tag = r ? `<span class="tag ${r.color}">${r.icono} ${r.titulo}</span>` : `<span class="tag gris">Sin informes aún</span>`;
+    const pend = (!u || u.mes < hoyYM()) ? `<div class="chico" style="color:var(--ambar);margin-top:6px">Falta cargar ${nombreMes(hoyYM())}</div>` : '';
+    return `<div class="card prop" data-id="${esc(p.id)}">
+      <h3>${esc(p.direccion)}</h3>
+      <div class="muted chico">${esc([p.tipo,p.barrio].filter(Boolean).join(' · '))}${p.codigo?' · '+esc(p.codigo):''}</div>
+      <div style="font-weight:600;margin:8px 0">${usd(n(p.precio))}${p.operacion==='Alquiler'?' <span class="muted chico">/ mes · alquiler</span>':''}</div>
+      ${tag}
+      ${u?`<div class="muted chico" style="margin-top:6px">Último informe: ${nombreMes(u.mes)} · ${u.consultas} consultas · ${u.visitas} visitas</div>`:''}
+      ${pend}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.prop').forEach(c=>c.onclick=()=>abrirProp(c.dataset.id));
+  mostrarBanner();
+}
+async function mostrarBanner(){
+  const b=$('#bannerMes'); b.classList.add('oculto');
+  try{
+    const e = await datos.estado();
+    if(e && e.mes && e.generado && !e.revisado){
+      b.innerHTML=`📋 <b>Los borradores de ${nombreMes(e.mes)} están listos</b> (${e.cantidad||PROPS.length} propiedades). Tocá acá para revisarlos y enviarlos.`;
+      b.onclick=()=>abrirMesTodos(e.mes); b.classList.remove('oculto');
+    }
+  }catch(err){}
+}
+
+/* ===== Importar respaldo (una sola vez, para traer los datos de la versión anterior) ===== */
+$('#fileRespaldo').onchange=async e=>{
+  const file=e.target.files[0]; e.target.value=''; if(!file) return;
+  let d; try{ d=JSON.parse(await file.text()); }catch(err){ toast('Ese archivo no es un respaldo válido'); return; }
+  if(!d || d.tipo!=='respaldo-informes-miguez' || !Array.isArray(d.props)){ toast('Ese archivo no es un respaldo de informes'); return; }
+  const total = d.props.reduce((s,p)=>s+1+(p.meses||[]).length,0);
+  toast('Importando '+d.props.length+' propiedades…');
+  try{
+    const batch=FS.batch();
+    d.props.forEach(p=>{ batch.set(refProp(p.id), p.data||{}); (p.meses||[]).forEach(m=>batch.set(refMeses(p.id).doc(m.mes), m)); });
+    await batch.commit();
+  }catch(err){ toast('No se pudo importar: '+(err.code||err.message||'error')); return; }
+  toast(`Listo: ${d.props.length} propiedades importadas (${total} registros). Ya podés borrar el archivo.`);
+  cargarLista();
+};
+
+$('#bNueva').onclick=()=>{ ACTUAL={id:nuevoId(), _nueva:true}; HIST=[]; llenarFormProp(ACTUAL); $('#pTitulo').textContent='Nueva propiedad'; $('#bBorrarProp').classList.add('oculto'); renderHist(); pintarWaLink(); ir('vProp'); };
+
+function llenarFormProp(p){
+  const f=$('#fProp');
+  ['link','direccion','barrio','codigo','fechaPublicacion','precio','m2','valorM2Mercado','propietario','telPropietario'].forEach(k=>f[k].value=p[k]??'');
+  f.tipo.value = p.tipo || 'Casa'; f.operacion.value = p.operacion || 'Venta'; f.moneda.value = p.moneda || 'USD';
+}
+$('#fProp').link.addEventListener('input', e=>{
+  const v=e.target.value, f=$('#fProp');
+  const m = v.match(/(?:\/p\/|\/prop(?:erty)?\/|[?&]id=)(\d{4,})/i) || v.match(/-(\d{5,})(?:[/?#]|$)/);
+  if(m && !f.codigo.value) f.codigo.value=m[1];
+});
+
+async function abrirProp(id){
+  VOLVER_A=null;
+  ACTUAL = PROPS.find(p=>p.id===id) || ACTUAL;
+  llenarFormProp(ACTUAL);
+  $('#pTitulo').textContent = ACTUAL.direccion || 'Propiedad';
+  $('#bBorrarProp').classList.remove('oculto');
+  ir('vProp'); $('#importRes').classList.add('oculto'); pintarWaLink();
+  $('#historial').innerHTML='<div class="muted chico">Cargando…</div>';
+  try{ HIST = await datos.meses(id); }catch(e){ HIST=[]; }
+  renderHist();
+}
+
+function renderHist(){
+  const el=$('#historial');
+  if(ACTUAL._nueva){ el.innerHTML='<div class="muted chico" style="padding:20px 0">Guardá los datos de la propiedad para empezar a cargar meses.</div>'; $('#bCargarMes').disabled=true; return; }
+  $('#bCargarMes').disabled=false;
+  if(!HIST.length){ el.innerHTML='<div class="muted chico" style="padding:20px 0">Sin meses cargados. Tocá “+ Cargar mes”.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Mes</th><th class="n">Vistas</th><th class="n">Consultas</th><th class="n">Visitas</th><th class="n">Ofertas</th><th>Recomendación</th><th></th></tr></thead><tbody>${
+    HIST.slice().reverse().map((h,ix)=>{ const a=analizar(ACTUAL,h,HIST); const r=RECOS[h.rec||a.rec];
+      return `<tr><td>${nombreMes(h.mes)}</td><td class="n">${fmt(n(h.vistas))}</td><td class="n">${a.consultas}</td><td class="n">${z(h.visitas)}</td><td class="n">${z(h.ofertas)}</td>
+      <td><span class="tag ${r.color}">${r.icono} ${r.titulo}</span></td>
+      <td style="white-space:nowrap"><button class="btn sec chico" data-ver="${h.mes}">Informe</button>${tocaTrimestral(ACTUAL,h.mes)?` <button class="btn chico" data-tri="${h.mes}">📊 Trimestral</button>`:''}${ix===0&&HIST.length>1?` <button class="btn chico" data-comp="${h.mes}">📈 Desde publicación</button>`:''} <button class="btn sec chico" data-ed="${h.mes}">Editar</button> <button class="btn peligro chico" data-del="${h.mes}" title="Borrar mes">✕</button></td></tr>` }).join('')
+  }</tbody></table>`;
+  el.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>verInforme(b.dataset.ver));
+  el.querySelectorAll('[data-tri]').forEach(b=>b.onclick=()=>verInforme(b.dataset.tri,'trimestral'));
+  el.querySelectorAll('[data-comp]').forEach(b=>b.onclick=()=>verInforme(b.dataset.comp,'completo'));
+  el.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>abrirMes(b.dataset.ed));
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    if(!await confirmar(`¿Borrar los datos de ${nombreMes(b.dataset.del)}?`)) return;
+    await datos.borrarMes(ACTUAL.id,b.dataset.del); HIST=HIST.filter(h=>h.mes!==b.dataset.del); await actualizarUltimo(); renderHist(); toast('Mes borrado');
+  });
+}
+
+$('#fProp').onsubmit=async e=>{
+  e.preventDefault();
+  const f=e.target, o={};
+  ['link','direccion','barrio','tipo','codigo','fechaPublicacion','propietario','telPropietario','operacion','moneda'].forEach(k=>o[k]=f[k].value.trim());
+  ['precio','m2','valorM2Mercado'].forEach(k=>o[k]=n(f[k].value));
+  if(ACTUAL.ultimo) o.ultimo=ACTUAL.ultimo;
+  o.actualizado = new Date().toISOString();
+  try{ await datos.guardarProp(ACTUAL.id,o); }catch(err){ toast('No se pudo guardar. Probá de nuevo.'); return; }
+  const id=ACTUAL.id; ACTUAL={id,...o};
+  const i=PROPS.findIndex(p=>p.id===id); if(i>=0) PROPS[i]=ACTUAL; else PROPS.push(ACTUAL);
+  $('#pTitulo').textContent=o.direccion; $('#bBorrarProp').classList.remove('oculto'); pintarWaLink();
+  renderHist(); toast('Datos guardados');
+};
+$('#bBorrarProp').onclick=async()=>{
+  if(!await confirmar(`¿Eliminar ${ACTUAL.direccion||'esta propiedad'} y todos sus informes? No se puede deshacer.`)) return;
+  await datos.borrarProp(ACTUAL.id); toast('Propiedad eliminada'); cargarLista(); ir('vLista');
+};
+
+/* ===== Cargar mes ===== */
+$('#bCargarMes').onclick=()=>abrirMes(null);
+function abrirMes(mes){
+  const f=$('#fMes'); f.reset();
+  const ex = mes ? HIST.find(h=>h.mes===mes) : null;
+  f.mes.value = mes || hoyYM();
+  f.precio.value = ex ? (ex.precio??'') : (ACTUAL.precio??'');
+  if(ex){ ['vistas','envios','inversionPauta','cWeb','cWa','cTel','cOtros','visitas','ofertas','ofertaMax','devoluciones','fechaReserva'].forEach(k=>f[k].value=ex[k]??''); f.pauta.value=ex.pauta||'no'; f.reservada.value=ex.reservada?'si':'no'; }
+  $('#mTitulo').textContent = ex ? 'Editar '+nombreMes(mes) : 'Cargar actividad del mes';
+  $('#mSub').textContent = ACTUAL.direccion;
+  ir('vMes');
+}
+$('#fMes').onsubmit=async e=>{
+  e.preventDefault();
+  const f=e.target, mes=f.mes.value;
+  const ex = HIST.find(h=>h.mes===mes) || {};
+  const o={...ex, mes, pauta:f.pauta.value, devoluciones:f.devoluciones.value.trim(), reservada:f.reservada.value==='si', fechaReserva:f.fechaReserva.value||null};
+  delete o.id;
+  ['precio','vistas','envios','inversionPauta','cWeb','cWa','cTel','cOtros','visitas','ofertas','ofertaMax'].forEach(k=>o[k]=n(f[k].value));
+  const histTmp = HIST.filter(h=>h.mes!==mes).concat([o]).sort((a,b)=>a.mes.localeCompare(b.mes));
+  const a = analizar(ACTUAL,o,histTmp);
+  o.rec=a.rec; o.precioSug=a.sug; o.texto=textoReco(a.rec,a,ACTUAL,o); o.textoEditado=false;
+  if(ex.textoEditado && ex.rec===a.rec){ o.texto=ex.texto; o.textoEditado=true; }
+  try{ await datos.guardarMes(ACTUAL.id,mes,o); }catch(err){ toast('No se pudo guardar. Probá de nuevo.'); return; }
+  HIST=histTmp;
+  if(mes===HIST[HIST.length-1].mes && o.precio && o.precio!==ACTUAL.precio){ ACTUAL.precio=o.precio; }
+  await actualizarUltimo();
+  const v=VOLVER_A; verInforme(mes); VOLVER_A=v;
+};
+async function actualizarUltimo(){
+  const u = HIST[HIST.length-1];
+  if(u){ const a=analizar(ACTUAL,u,HIST); ACTUAL.ultimo={mes:u.mes, rec:u.rec||a.rec, consultas:a.consultas, visitas:z(u.visitas)}; }
+  else delete ACTUAL.ultimo;
+  const {id,_nueva,...o}=ACTUAL;
+  try{ await datos.guardarProp(id,o); }catch(e){}
+  const i=PROPS.findIndex(p=>p.id===id); if(i>=0) PROPS[i]=ACTUAL; else PROPS.push(ACTUAL);
+}
+
+/* ===== Link de WhatsApp ===== */
+function waLinkProp(){
+  if(!ACTUAL || !ACTUAL.codigo) return '';
+  const q=new URLSearchParams({p:ACTUAL.codigo.toUpperCase(), o:$('#waOrigen').value});
+  if(ACTUAL.direccion) q.set('d', ACTUAL.direccion);
+  return 'https://profound-tanuki-709d8a.netlify.app/wa?'+q.toString();
+}
+function pintarWaLink(){ const l=waLinkProp(); $('#waLink').textContent = l || 'Cargá el código de Tokko en los datos de la propiedad para generar el link.'; $('#bCopiarWaLink').disabled=!l; }
+$('#waOrigen').onchange=pintarWaLink;
+$('#bCopiarWaLink').onclick=async()=>{ const l=waLinkProp(); if(!l) return; try{ await navigator.clipboard.writeText(l); toast('Link copiado'); }catch(e){ toast('No pude copiar; seleccioná el link y copialo a mano'); } };
+
+/* ===== Importar Excel de Tokko ===== */
+$('#bImportar').onclick=()=>$('#fileTokko').click();
+function fechaYM(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date && !isNaN(v)) return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0');
+  if(typeof v==='number'){ const d=XLSX.SSF.parse_date_code(v); return d? d.y+'-'+String(d.m).padStart(2,'0') : null; }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/); if(m) return m[3]+'-'+m[2].padStart(2,'0');
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m) return m[1]+'-'+m[2].padStart(2,'0');
+  return null;
+}
+function estadoImport(html, ok){ const b=$('#importRes'); b.innerHTML=html; b.style.background= ok?'var(--verde-claro)':'var(--ambar-claro)'; b.style.color= ok?'var(--verde)':'var(--ambar)'; b.classList.remove('oculto'); }
+$('#fileTokko').onchange=async e=>{
+  const file=e.target.files[0]; e.target.value=''; if(!file) return;
+  if(/\.pdf$/i.test(file.name) || file.type==='application/pdf'){ estadoImport('Los PDF no se pueden leer solos en esta versión. Cargá esos números a mano con “Editar” en el mes que corresponda.', false); return; }
+  if(!window.XLSX){ toast('No se pudo cargar el lector de Excel. Recargá la página.'); return; }
+  let wb; try{ wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true}); }catch(err){ toast('No pude leer ese archivo'); return; }
+  const cuenta={};
+  const sumar=(mes,k)=>{ cuenta[mes]=cuenta[mes]||{consultas:0,visitas:0,envios:0}; cuenta[mes][k]++; };
+  wb.SheetNames.forEach(nom=>{
+    const filas=XLSX.utils.sheet_to_json(wb.Sheets[nom],{defval:null,raw:true});
+    const t=nom.toLowerCase();
+    const tipo = /mail|whats/.test(t) ? 'envios' : /evento|visita/.test(t) ? 'visitas' : 'consultas';
+    filas.forEach(f=>{ const k=Object.keys(f).find(k=>/^fecha/i.test(k.trim())); const ym=fechaYM(k?f[k]:null); if(ym){ sumar(ym,tipo); } });
+  });
+  const meses=Object.keys(cuenta).sort();
+  if(!meses.length){ toast('El archivo no trae registros con fecha'); return; }
+  for(const mes of meses){
+    const ex = HIST.find(h=>h.mes===mes);
+    const o = ex ? {...ex} : {mes, precio:ACTUAL.precio??null, pauta:'no'};
+    delete o.id;
+    const c=cuenta[mes];
+    o.cWeb=c.consultas; o.envios=c.envios;
+    if(c.visitas>0 && !(n(o.visitas)>c.visitas)) o.visitas=c.visitas;
+    o.importadoTokko=new Date().toISOString();
+    const histTmp=HIST.filter(h=>h.mes!==mes).concat([o]).sort((a,b)=>a.mes.localeCompare(b.mes));
+    const a=analizar(ACTUAL,o,histTmp);
+    o.rec=a.rec; o.precioSug=a.sug;
+    if(!(o.textoEditado && ex && ex.rec===a.rec)){ o.texto=textoReco(a.rec,a,ACTUAL,o); o.textoEditado=false; }
+    try{ await datos.guardarMes(ACTUAL.id,mes,o); }catch(err){ toast('No se pudo guardar '+nombreMes(mes)); return; }
+    HIST=histTmp;
+  }
+  await actualizarUltimo(); renderHist();
+  const det=meses.map(m=>`${mesCorto(m)}: ${cuenta[m].consultas} consulta${cuenta[m].consultas===1?'':'s'}${cuenta[m].visitas?', '+cuenta[m].visitas+' visitas':''}${cuenta[m].envios?', '+cuenta[m].envios+' envíos':''}`).join(' · ');
+  estadoImport(`<b>Importado.</b> ${det}.<br>Falta completar a mano en cada mes: vistas de portales y visitas que no estén en Tokko (tocá “Editar”).`, true);
+};
+
+/* ===== Informes del mes (todas las propiedades) ===== */
+$('#bMesTodos').onclick=()=>{ const d=new Date(); if(d.getDate()<=15){ const x=new Date(d.getFullYear(), d.getMonth()-1, 1); abrirMesTodos(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')); } else abrirMesTodos(hoyYM()); };
+(function(){ const d=new Date(); const ops=[]; for(let i=0;i<12;i++){ const x=new Date(d.getFullYear(), d.getMonth()-i, 1); const m=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'); ops.push(`<option value="${m}">${nombreMes(m)}</option>`); } $('#mtMes').innerHTML=ops.join(''); })();
+$('#mtMes').onchange=()=>abrirMesTodos($('#mtMes').value);
+let MT=[];
+async function abrirMesTodos(mes){
+  VOLVER_A='mes'; $('#mtMes').value=mes; ir('vMesTodos');
+  $('#mtTabla').innerHTML='<div class="muted chico">Cargando propiedades…</div>'; $('#mtResumen').innerHTML='';
+  try{ PROPS=await datos.props(); }catch(e){ $('#mtTabla').innerHTML='No pude leer los datos. Probá recargar.'; return; }
+  MT=[];
+  for(const p of PROPS){ let hist=[]; try{ hist=await datos.meses(p.id); }catch(e){} MT.push({p, hist, m: hist.find(h=>h.mes===mes)||null}); }
+  for(const it of MT){
+    if(it.m && !it.m.rec){
+      const a=analizar(it.p,it.m,it.hist); it.m.rec=a.rec; it.m.precioSug=a.sug; if(!(it.m.textoEditado && it.m.texto)){ it.m.texto=textoReco(a.rec,a,it.p,it.m); it.m.textoEditado=false; }
+      const {id:_x, ...mm}=it.m;
+      try{ await datos.guardarMes(it.p.id,mes,mm); }catch(e){}
+      const ult=it.hist[it.hist.length-1];
+      if(ult && ult.mes===mes){ it.p.ultimo={mes, rec:it.m.rec, consultas:a.consultas, visitas:z(it.m.visitas)}; const {id,...o}=it.p; try{ await datos.guardarProp(id,o); }catch(e){} }
+    }
+  }
+  try{ const e=await datos.estado(); if(e && e.mes===mes && e.generado && !e.revisado){ await datos.guardarEstado({...e, revisado:new Date().toISOString()}); } }catch(e){}
+  pintarMesTodos(mes);
+}
+function faltantes(it){
+  const f=[]; const m=it.m; if(!m) return ['sin datos'];
+  if(!m.importadoTokko && !m.importadoPdf && !m.tokkoAuto && m.cWeb==null) f.push('faltan consultas de Tokko');
+  if(m.vistas==null) f.push('faltan vistas');
+  if(m.visitas==null) f.push('faltan visitas');
+  return f;
+}
+function pintarMesTodos(mes){
+  MT.sort((a,b)=>(a.p.direccion||'').localeCompare(b.p.direccion||''));
+  const con=MT.filter(x=>x.m), listos=con.filter(x=>!faltantes(x).length);
+  const porRec={}; con.forEach(x=>{ porRec[x.m.rec]=(porRec[x.m.rec]||0)+1; });
+  $('#mtResumen').innerHTML=`<span class="tag gris">${MT.length} propiedades</span><span class="tag verde">${listos.length} completos</span><span class="tag ambar">${con.length-listos.length} con datos faltantes</span>${MT.length-con.length?`<span class="tag gris">${MT.length-con.length} sin borrador</span>`:''}`+
+    Object.entries(porRec).filter(([k])=>RECOS[k]).map(([k,v])=>`<span class="tag ${RECOS[k].color}">${RECOS[k].icono} ${v} · ${RECOS[k].titulo}</span>`).join('');
+  if(!MT.length){ $('#mtTabla').innerHTML='<div class="vacio">Todavía no hay propiedades cargadas.</div>'; return; }
+  $('#mtTabla').innerHTML=`<table><thead><tr><th>Propiedad</th><th class="n">Vistas</th><th class="n">Consultas</th><th class="n">WhatsApp</th><th class="n">Visitas</th><th>Recomendación</th><th>Falta</th><th></th></tr></thead><tbody>${
+    MT.map((it,i)=>{ const m=it.m;
+      if(!m) return `<tr><td><b>${esc(it.p.direccion)}</b></td><td colspan="6" class="muted">Sin borrador para este mes</td><td><button class="btn sec chico" data-crear="${i}">Crear</button></td></tr>`;
+      const a=analizar(it.p,m,it.hist); const r=RECOS[m.rec||a.rec]; const f=faltantes(it);
+      return `<tr><td><b>${esc(it.p.direccion)}</b>${tocaTrimestral(it.p,mes)?' <span class="tag azul">📊 + trimestral</span>':''}<div class="muted chico">${esc(it.p.propietario||'')}</div></td><td class="n">${fmt(n(m.vistas))}</td><td class="n">${a.consultas}</td><td class="n">${m.cWa??'–'}</td><td class="n">${m.visitas??'–'}</td>
+        <td><span class="tag ${r.color}">${r.icono} ${r.titulo}</span></td>
+        <td>${f.length? f.map(x=>`<div class="chico" style="color:var(--ambar)">• ${x}</div>`).join('') : '<span class="tag verde">✓ listo</span>'}</td>
+        <td style="white-space:nowrap"><button class="btn sec chico" data-mtver="${i}">Informe</button>${tocaTrimestral(it.p,mes)?` <button class="btn chico" data-mttri="${i}">📊 Trimestral</button>`:''} <button class="btn sec chico" data-mted="${i}">Completar</button></td></tr>`; }).join('')
+  }</tbody></table>`;
+  $('#mtTabla').querySelectorAll('[data-mtver]').forEach(b=>b.onclick=()=>{ const it=MT[+b.dataset.mtver]; ACTUAL=it.p; HIST=it.hist; verInforme(mes); VOLVER_A='mes'; });
+  $('#mtTabla').querySelectorAll('[data-mttri]').forEach(b=>b.onclick=()=>{ const it=MT[+b.dataset.mttri]; ACTUAL=it.p; HIST=it.hist; verInforme(mes,'trimestral'); VOLVER_A='mes'; });
+  $('#mtTabla').querySelectorAll('[data-mted]').forEach(b=>b.onclick=()=>{ const it=MT[+b.dataset.mted]; ACTUAL=it.p; HIST=it.hist; abrirMes(mes); VOLVER_A='mes'; });
+  $('#mtTabla').querySelectorAll('[data-crear]').forEach(b=>b.onclick=async()=>{ await crearBorrador(MT[+b.dataset.crear],mes); pintarMesTodos(mes); });
+}
+async function crearBorrador(it,mes){
+  const prev=it.hist.filter(h=>h.mes<mes).slice(-1)[0];
+  const o={mes, precio: n(it.p.precio) ?? (prev?prev.precio:null), pauta:'no'};
+  const histTmp=it.hist.concat([o]).sort((a,b)=>a.mes.localeCompare(b.mes));
+  const a=analizar(it.p,o,histTmp); o.rec=a.rec; o.precioSug=a.sug; o.texto=textoReco(a.rec,a,it.p,o); o.textoEditado=false;
+  await datos.guardarMes(it.p.id,mes,o); it.hist=histTmp; it.m=o;
+}
+$('#mtCrear').onclick=async()=>{ const mes=$('#mtMes').value; const b=$('#mtCrear'); b.disabled=true;
+  for(const it of MT){ if(!it.m){ try{ await crearBorrador(it,mes); }catch(e){} } }
+  b.disabled=false; pintarMesTodos(mes); toast('Borradores creados'); };
+
+/* =========================================================
+   Informe
+   ========================================================= */
+let guardarTimer=null;
+function verInforme(mes, tipo){
+  setTipo(tipo||'mensual');
+  MES_ACTUAL = HIST.find(h=>h.mes===mes);
+  const a = anaActual();
+  if(!MES_ACTUAL[K.rec]){ MES_ACTUAL[K.rec]=a.rec; MES_ACTUAL[K.sug]=a.sug; }
+  if(!MES_ACTUAL[K.tx]) MES_ACTUAL[K.tx]=textoActual(MES_ACTUAL[K.rec],a);
+  $('#eTipo').value = VISTA_TIPO;
+  $('#eRec').value = MES_ACTUAL[K.rec];
+  $('#ePrecioSug').value = MES_ACTUAL[K.sug] ?? '';
+  $('#eTexto').value = MES_ACTUAL[K.tx];
+  renderInforme();
+  ir('vInforme');
+}
+function cambioEditor(campo){
+  if(campo==='tipo'){ const v=VOLVER_A; verInforme(MES_ACTUAL.mes, $('#eTipo').value); VOLVER_A=v; return; }
+  if(campo==='rec'){
+    MES_ACTUAL[K.rec]=$('#eRec').value;
+    const a=anaActual();
+    if(MES_ACTUAL[K.rec]==='bajar' && !MES_ACTUAL[K.sug]){ MES_ACTUAL[K.sug] = a.sug || precioAjustado(a.precio,ACTUAL); $('#ePrecioSug').value=MES_ACTUAL[K.sug]; }
+    if(!MES_ACTUAL[K.ed]){ MES_ACTUAL[K.tx]=textoActual(MES_ACTUAL[K.rec],{...a,sug:MES_ACTUAL[K.sug]}); $('#eTexto').value=MES_ACTUAL[K.tx]; }
+  }
+  if(campo==='sug'){
+    MES_ACTUAL[K.sug]=n($('#ePrecioSug').value);
+    if(!MES_ACTUAL[K.ed]){ const a=anaActual(); MES_ACTUAL[K.tx]=textoActual(MES_ACTUAL[K.rec],{...a,sug:MES_ACTUAL[K.sug]}); $('#eTexto').value=MES_ACTUAL[K.tx]; }
+  }
+  if(campo==='texto'){ MES_ACTUAL[K.tx]=$('#eTexto').value; MES_ACTUAL[K.ed]=true; }
+  renderInforme();
+  clearTimeout(guardarTimer);
+  guardarTimer=setTimeout(async()=>{ try{ const {id:_x, ...mm}=MES_ACTUAL; await datos.guardarMes(ACTUAL.id,MES_ACTUAL.mes,mm); await actualizarUltimo(); }catch(e){ toast('No se pudo guardar el cambio'); } }, 900);
+}
+$('#eRec').onchange=()=>cambioEditor('rec');
+$('#eTipo').onchange=()=>cambioEditor('tipo');
+$('#ePrecioSug').oninput=()=>cambioEditor('sug');
+$('#eTexto').oninput=()=>cambioEditor('texto');
+$('#bRegenerar').onclick=()=>{ MES_ACTUAL[K.ed]=false; const a=anaActual(); $('#eTexto').value=textoActual(MES_ACTUAL[K.rec],{...a,sug:MES_ACTUAL[K.sug]}); MES_ACTUAL[K.tx]=$('#eTexto').value; cambioEditor('x'); };
+
+function grafico(hist, hastaMes){
+  const datosG = hist.filter(h=>h.mes<=hastaMes).slice(-6);
+  if(datosG.length<2) return '';
+  const W=704, H=170, padL=28, padB=34, padT=12, iw=W-padL-8, ih=H-padB-padT;
+  const val = h=>({c: z(h.cWeb)+z(h.cWa)+z(h.cTel)+z(h.cOtros), v: z(h.visitas)});
+  const max = Math.max(4, ...datosG.map(h=>Math.max(val(h).c,val(h).v)));
+  const paso = Math.ceil(max/4); const top = paso*4;
+  const gw = iw/datosG.length, bw = Math.min(26, gw/4);
+  let s = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block" role="img" aria-label="Consultas y visitas por mes">`;
+  for(let i=0;i<=4;i++){ const y=padT+ih-ih*i/4; s+=`<line x1="${padL}" x2="${W-8}" y1="${y}" y2="${y}" stroke="${i?'#EEF0F2':'#C9CED4'}" stroke-width="1"/><text x="${padL-6}" y="${y+4}" font-size="10" fill="#8C959F" text-anchor="end">${paso*i}</text>`; }
+  datosG.forEach((h,i)=>{
+    const {c,v}=val(h); const cx=padL+gw*i+gw/2;
+    const bar=(x,val,col,lbl)=>{ const bh=Math.max(val?3:0, ih*val/top); const y=padT+ih-bh; const r=Math.min(4,bh/2);
+      return `<path d="M${x},${padT+ih} V${y+r} Q${x},${y} ${x+r},${y} H${x+bw-r} Q${x+bw},${y} ${x+bw},${y+r} V${padT+ih} Z" fill="${col}" data-tip="${mesCorto(h.mes)} · ${lbl}: ${val}"/>`+
+      (val?`<text x="${x+bw/2}" y="${y-4}" font-size="10" fill="#57606A" text-anchor="middle">${val}</text>`:''); };
+    s+=bar(cx-bw-1,c,'#C8102E','Consultas')+bar(cx+1,v,'#2F6DB5','Visitas');
+    s+=`<text x="${cx}" y="${H-padB+16}" font-size="11" fill="${h.mes===hastaMes?'#1F2328':'#8C959F'}" font-weight="${h.mes===hastaMes?600:400}" text-anchor="middle">${mesCorto(h.mes)}</text>`;
+    s+=`<text x="${cx}" y="${H-padB+29}" font-size="9.5" fill="#8C959F" text-anchor="middle">${n(h.vistas)!=null?fmt(n(h.vistas))+' vistas':''}</text>`;
+  });
+  return s+'</svg>';
+}
+
+function renderInforme(){
+  const p=ACTUAL, m=MES_ACTUAL, a=anaActual(); const T=a.trimestral;
+  const r=RECOS[m[K.rec]];
+  const C=!!a.completo; const per0 = T? a.desde : m.mes; const lbl = C? 'desde publicación' : '3 meses';
+  const dia0 = C && p.fechaPublicacion ? p.fechaPublicacion.slice(8,10) : '01';
+  const flecha = (v)=> v==null?'':`<div class="d">${v>=0?'▲':'▼'} ${pct(Math.abs(v))} vs. mes anterior</div>`;
+  const tasa=(x,y)=> (x&&y!=null)? pct(y/x*100) : '–';
+  const g = grafico(HIST, m.mes);
+  $('#informe').innerHTML = `
+  <div class="inf-head">
+    <div><div class="m1">MIGUEZ</div><div class="m2">PROPIEDADES</div></div>
+    <div class="tit">${C?'Informe desde la publicación':T?'Informe trimestral':'Informe de actividad'}<b>${T? (MESES[+a.desde.slice(5)-1].slice(0,3)+' – '+nombreMes(m.mes)).replace(/^./,c=>c.toUpperCase()) : nombreMes(m.mes).replace(/^./,c=>c.toUpperCase())}</b></div>
+  </div>
+  <div class="inf-body">
+    <div class="inf-prop">
+      <div><div class="dir">${esc(p.direccion)}</div>
+        <div class="sub">${esc([p.tipo+(p.operacion==='Alquiler'?' en alquiler':' en venta'),p.barrio||'La Plata'].filter(Boolean).join(' · '))}${p.codigo?' · Código '+esc(p.codigo):''}</div>
+        ${p.propietario?`<div class="sub">Propietario: ${esc(p.propietario)}</div>`:''}</div>
+      <div class="per">Período del informe<b>${dia0}/${per0.slice(5)}/${per0.slice(0,4)} al ${String(finDeMes(m.mes).getDate()).padStart(2,'0')}/${m.mes.slice(5)}/${m.mes.slice(0,4)}</b></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${usd(a.precio)}</div><div class="l">${p.operacion==='Alquiler'?'Alquiler mensual publicado':'Precio publicado'}</div></div>
+      <div class="kpi"><div class="v">${a.pm2?usd(a.pm2):'–'}</div><div class="l">Precio por m²${a.ref?` · ref. zona ${usd(a.ref)}`:''}</div></div>
+      <div class="kpi"><div class="v">${a.dias??'–'}</div><div class="l">Días publicada</div></div>
+    </div>
+    ${T? `<div class="kpis4">
+      ${C && a.t.inversion ? `<div class="kpi2"><div class="l">Invertido en pauta</div><div class="v">$${fmt(a.t.inversion)}</div><div class="t">${a.t.mesesPauta} mes${a.t.mesesPauta>1?'es':''} de campaña</div></div>` : `<div class="kpi2"><div class="l">Vistas (${lbl})</div><div class="v">${fmt(a.t.vistas)}</div><div class="t">${fmt(a.t.vistas/Math.max(1,a.t.n))} por mes</div></div>`}
+      <div class="kpi2"><div class="l">Consultas (${lbl})</div><div class="v">${a.t.consultas}</div><div class="t">${(a.t.consultas/Math.max(1,a.t.n)).toLocaleString('es-AR',{maximumFractionDigits:1})} por mes</div></div>
+      <div class="kpi2"><div class="l">Visitas (${lbl})</div><div class="v">${a.t.visitas}</div><div class="t">${C?(a.t.visitas/Math.max(1,a.t.n)).toLocaleString('es-AR',{maximumFractionDigits:1})+' por mes':a.tot.visitas+' desde la publicación'}</div></div>
+      <div class="kpi2"><div class="l">Ofertas (${lbl})</div><div class="v">${a.t.ofertas}</div><div class="t">${C?'':a.tot.ofertas+' desde la publicación'}</div></div>
+    </div>
+    <div class="inf-sec"><h5>Mes a mes</h5><table><thead><tr><th>Mes</th><th class="n">Precio</th><th>Pauta</th><th class="n">Vistas</th><th class="n">Consultas</th><th class="n">Visitas</th><th class="n">Ofertas</th></tr></thead><tbody>${a.meses.map(h=>`<tr><td>${nombreMes(h.mes)}</td><td class="n">${n(h.precio)?usd(n(h.precio)):'–'}</td><td>${h.pauta==='si'?'Sí':'No'}</td><td class="n">${fmt(n(h.vistas))}</td><td class="n">${z(h.cWeb)+z(h.cWa)+z(h.cTel)+z(h.cOtros)}</td><td class="n">${z(h.visitas)}</td><td class="n">${z(h.ofertas)}</td></tr>`).join('')}</tbody></table></div>` : `
+    <div class="kpis4">
+      <div class="kpi2"><div class="l">Vistas del aviso</div><div class="v">${fmt(a.vistas)}</div><div class="t">${fmt(a.tot.vistas)} en total</div>${flecha(a.varV)}</div>
+      <div class="kpi2"><div class="l">Consultas</div><div class="v">${a.consultas}</div><div class="t">${a.tot.consultas} en total</div>${flecha(a.varC)}</div>
+      <div class="kpi2"><div class="l">Visitas realizadas</div><div class="v">${z(m.visitas)}</div><div class="t">${a.tot.visitas} en total</div></div>
+      <div class="kpi2"><div class="l">Ofertas</div><div class="v">${z(m.ofertas)}</div><div class="t">${a.tot.ofertas} en total</div></div>
+    </div>
+    <div class="inf-sec"><h5>Del aviso a la oferta (este mes)</h5>
+      <div class="embudo">
+        <div class="emb"><div class="v">${fmt(a.vistas)}</div><div class="l">vieron el aviso</div></div>
+        <div class="flecha">→<span>${tasa(a.vistas,a.consultas)}</span></div>
+        <div class="emb"><div class="v">${a.consultas}</div><div class="l">consultaron</div></div>
+        <div class="flecha">→<span>${tasa(a.consultas,z(m.visitas))}</span></div>
+        <div class="emb"><div class="v">${z(m.visitas)}</div><div class="l">la visitaron</div></div>
+        <div class="flecha">→<span>${tasa(z(m.visitas),z(m.ofertas))}</span></div>
+        <div class="emb"><div class="v">${z(m.ofertas)}</div><div class="l">ofertaron</div></div>
+      </div>
+    </div>`}
+    ${g?`<div class="inf-sec"><h5>Evolución mensual</h5><div class="leyenda"><span><i style="background:#C8102E"></i>Consultas</span><span><i style="background:#2F6DB5"></i>Visitas</span></div>${g}</div>`:''}
+    <div class="inf-sec"><h5>${C?'Análisis desde la publicación':T?'Análisis del trimestre':'Análisis del mes'}</h5><ul class="puntos">${a.pts.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    <div class="inf-sec"><h5>Próximos pasos</h5>
+      <div class="reco ${r.color}"><div class="rt">${r.icono} ${r.titulo}${m[K.rec]==='bajar'&&m[K.sug]?` · ${usd(m[K.sug])}`:''}</div><div class="rx">${esc(m[K.tx])}</div></div>
+    </div>
+  </div>
+  <div class="inf-pie">
+    <div><b>Miguez Propiedades</b><br>Calle 46 n°853 8°A, La Plata<br>Tel.: 221 314-2651</div>
+    <div style="text-align:right"><b>Miguez Propiedades</b><br>miguezpropiedades.com.ar<br>@miguezpropiedades</div>
+  </div>`;
+  $('#informe').querySelectorAll('[data-tip]').forEach(el=>{
+    el.addEventListener('mousemove',e=>{ const t=$('#tip'); t.textContent=el.dataset.tip; t.style.display='block'; t.style.left=(e.clientX+12)+'px'; t.style.top=(e.clientY-30)+'px'; });
+    el.addEventListener('mouseleave',()=>$('#tip').style.display='none');
+  });
+  const msg = mensajeWa(p,m,a);
+  const tel = telWa(p.telPropietario);
+  const aw=$('#aWa');
+  if(tel){ aw.href=`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`; aw.classList.remove('oculto'); $('#waAyuda').textContent='Primero descargá el PDF o la imagen para adjuntarlo en el chat.'; }
+  else { aw.classList.add('oculto'); $('#waAyuda').textContent='Cargá el WhatsApp del propietario en los datos de la propiedad para abrir el chat directo.'; }
+}
+
+function mensajeWa(p,m,a){
+  const nom = (p.propietario||'').split(' ')[0];
+  const r=RECOS[m[K.rec]];
+  if(a.completo) return `Hola${nom?' '+nom:''}! ¿Cómo estás? Te comparto el informe completo de tu propiedad en ${p.direccion}, desde que la publicamos (${rangoMeses(a.meses)}).\n\n`+
+    `📊 Resumen desde la publicación:\n• ${a.t.consultas} consultas\n• ${a.t.visitas} visitas\n• ${a.t.ofertas} ofertas${a.t.inversion?`\n• ${a.t.mesesPauta} meses de pauta en redes`:''}\n\n`+
+    `✅ Próximos pasos: ${r.titulo}${m[K.rec]==='bajar'&&m[K.sug]?' a '+usd(m[K.sug]):''}.\n${m[K.tx]}\n\n`+
+    `Te adjunto el informe completo. Cuando quieras lo charlamos.\nMiguez Propiedades`;
+  if(a.trimestral) return `Hola${nom?' '+nom:''}! ¿Cómo estás? Te comparto el informe trimestral (${a.meses.map(h=>MESES[+h.mes.slice(5)-1]).join(', ')}) de tu propiedad en ${p.direccion}.\n\n`+
+    `📊 Resumen de los últimos 3 meses:\n• ${fmt(a.t.vistas)} vistas del aviso\n• ${a.t.consultas} consultas\n• ${a.t.visitas} visitas\n• ${a.t.ofertas} ofertas\n\n`+
+    `✅ Próximos pasos: ${r.titulo}${m[K.rec]==='bajar'&&m[K.sug]?' a '+usd(m[K.sug]):''}.\n${m[K.tx]}\n\n`+
+    `Te adjunto el informe completo. Cuando quieras lo charlamos.\nMiguez Propiedades`;
+  return `Hola${nom?' '+nom:''}! ¿Cómo estás? Te comparto el informe de actividad de ${nombreMes(m.mes)} de tu propiedad en ${p.direccion}.\n\n`+
+  `📊 Resumen del mes:\n• ${fmt(a.vistas)} vistas del aviso\n• ${a.consultas} consultas\n• ${z(m.visitas)} visitas${p.operacion==='Alquiler'?'':'\n• '+z(m.ofertas)+' ofertas'}\n\n`+
+  `✅ Próximos pasos: ${r.titulo}${m[K.rec]==='bajar'&&m[K.sug]?' a '+usd(m[K.sug]):''}.\n${m[K.tx]}\n\n`+
+  `Te adjunto el informe completo. Cuando quieras lo charlamos.\nMiguez Propiedades`;
+}
+
+$('#bCopiar').onclick=async()=>{
+  const a=anaActual();
+  try{ await navigator.clipboard.writeText(mensajeWa(ACTUAL,MES_ACTUAL,a)); toast('Mensaje copiado. Pegalo en WhatsApp.'); }
+  catch(e){ toast('No pude copiar automáticamente'); }
+};
+
+/* ===== Descargas ===== */
+async function capturar(){
+  if(!window.html2canvas) throw new Error('lib');
+  return await html2canvas($('#informe'), {scale:2, backgroundColor:'#ffffff', useCORS:true});
+}
+function nombreArchivo(ext){ const d=(ACTUAL.direccion||'propiedad').replace(/[^\wáéíóúñÁÉÍÓÚÑ ]/g,'').trim().replace(/\s+/g,'-').slice(0,40); return `Informe${VISTA_TIPO==='trimestral'?'-Trimestral':VISTA_TIPO==='completo'?'-Desde-publicacion':''}-${d}-${MESES[+MES_ACTUAL.mes.slice(5)-1]}-${MES_ACTUAL.mes.slice(0,4)}.${ext}` }
+function guardarArchivo(ext, blob){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=nombreArchivo(ext);
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+  toast('Listo');
+}
+$('#bPdf').onclick=async()=>{
+  const b=$('#bPdf'); b.disabled=true; b.textContent='Generando…';
+  try{
+    const c=await capturar();
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({unit:'mm', format:'a4'});
+    const pw=210, ph=297, m=8; const w=pw-2*m; const h=c.height*w/c.width;
+    const hh=Math.min(h, ph-2*m); const ww = h>ph-2*m ? c.width*hh/c.height : w;
+    pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',(pw-ww)/2,m,ww,hh);
+    guardarArchivo('pdf', pdf.output('blob'));
+  }catch(e){ toast('No se pudo generar el PDF'); }
+  b.disabled=false; b.textContent='Descargar PDF';
+};
+$('#bPng').onclick=async()=>{
+  try{ const c=await capturar(); const blob=await new Promise(r=>c.toBlob(r,'image/png')); guardarArchivo('png', blob); }
+  catch(e){ toast('No se pudo generar la imagen'); }
+};
+
+/* =========================================================
+   Login, cierre por inactividad y arranque
+   ========================================================= */
+const MIN_INACTIVIDAD = 15;
+let timerInact=null;
+function resetInactividad(){ clearTimeout(timerInact); timerInact=setTimeout(()=>{ toast('Se cerró la sesión por inactividad'); auth.signOut(); }, MIN_INACTIVIDAD*60*1000); }
+['click','keydown','mousemove','touchstart','scroll'].forEach(ev=>document.addEventListener(ev, ()=>{ if(auth.currentUser) resetInactividad(); }, {passive:true}));
+
+$('#fLogin').onsubmit=e=>{
+  e.preventDefault(); $('#lError').textContent='';
+  auth.signInWithEmailAndPassword($('#lEmail').value.trim(), $('#lPass').value)
+    .catch(()=>{ $('#lError').textContent='Usuario o contraseña incorrectos.'; });
+};
+$('#bSalir').onclick=e=>{ e.preventDefault(); auth.signOut(); };
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    $('#vLogin').classList.add('oculto'); $('#app').classList.remove('oculto'); $('#bSalir').classList.remove('oculto');
+    $('#lPass').value='';
+    resetInactividad(); ir('vLista'); cargarLista();
+  } else {
+    clearTimeout(timerInact);
+    // al salir se borra todo lo que estaba en pantalla
+    PROPS=[]; ACTUAL=null; HIST=[]; MES_ACTUAL=null;
+    $('#listaProps').innerHTML=''; $('#informe').innerHTML=''; $('#historial').innerHTML=''; $('#mtTabla').innerHTML='';
+    $('#app').classList.add('oculto'); $('#bSalir').classList.add('oculto'); $('#vLogin').classList.remove('oculto');
+  }
+});
+</script>
+</body>
+</html>
