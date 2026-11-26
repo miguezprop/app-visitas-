@@ -158,6 +158,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
       <button class="btn sec" id="bMesTodos">📋 Informes del mes</button>
       <button class="btn" id="bNueva">+ Nueva propiedad</button>
     </div>
+    <input id="buscar" type="search" placeholder="🔍 Buscar por calle, barrio, código o propietario…" style="margin-top:14px;max-width:460px">
     <div id="syncInfo" class="muted chico" style="margin-top:8px"></div>
     <div id="bannerMes" class="aviso oculto" style="margin-top:14px;background:var(--verde-claro);color:var(--verde);cursor:pointer"></div>
     <div id="listaProps" class="grid-props"></div>
@@ -369,6 +370,9 @@ function hoyYM(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMon
 function finDeMes(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y, m, 0) }
 function diasEntre(a,b){ return Math.max(0, Math.round((b - a)/86400000)) }
 function redondear(v, paso){ paso = paso || (CUR==='ARS'?10000:1000); return Math.round(v/paso)*paso }
+// Ordena direcciones respetando el número de calle (7 antes que 13, 13 antes que 67) y sin distinguir mayúsculas.
+function ordenDir(a,b){ return String(a||'').trim().localeCompare(String(b||'').trim(), 'es', {numeric:true, sensitivity:'base'}); }
+function sinAcentos(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
 function toast(t){ const e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('on'),2600) }
 function nuevoId(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6) }
@@ -568,7 +572,7 @@ async function cargarLista(){
   const el = $('#listaProps');
   try{ PROPS = await datos.props(); }
   catch(e){ el.innerHTML = `<div class="card vacio" style="grid-column:1/-1">No pude leer los datos. ${e && e.code==='permission-denied' ? 'La base no dio permiso: revisá las reglas de Firestore.' : 'Probá recargar en un momento.'}</div>`; return; }
-  PROPS.sort((a,b)=>(!!a.bajaTokko-!!b.bajaTokko) || (a.direccion||'').localeCompare(b.direccion||''));
+  PROPS.sort((a,b)=>(!!a.bajaTokko-!!b.bajaTokko) || ordenDir(a.direccion,b.direccion));
   if(!PROPS.length){ el.innerHTML = `<div class="card vacio" style="grid-column:1/-1"><b>Todavía no hay propiedades cargadas.</b><br>Empezá con “+ Nueva propiedad”, o traé las que ya tenías cargadas:<br><button class="btn" id="bRespaldo" style="margin-top:12px">⬆ Importar respaldo (.json)</button></div>`;
     $('#bRespaldo').onclick=()=>$('#fileRespaldo').click(); return; }
   el.innerHTML = PROPS.map(p=>{
@@ -578,7 +582,8 @@ async function cargarLista(){
     const tag = r ? `<span class="tag ${r.color}">${r.icono} ${r.titulo}</span>` : `<span class="tag gris">Sin informes aún</span>`;
     const baja = p.bajaTokko ? `<div style="margin-top:6px"><span class="tag gris">Ya no está publicada en Tokko (desde ${esc(p.bajaTokko.split('-').reverse().join('/'))})</span></div>` : '';
     const pend = (!p.bajaTokko && (!u || u.mes < hoyYM())) ? `<div class="chico" style="color:var(--ambar);margin-top:6px">Falta cargar ${nombreMes(hoyYM())}</div>` : '';
-    return `<div class="card prop" data-id="${esc(p.id)}"${p.bajaTokko?' style="opacity:.6"':''}>
+    const busca = sinAcentos([p.direccion,p.barrio,p.codigo,p.propietario,p.tipo].filter(Boolean).join(' '));
+    return `<div class="card prop" data-id="${esc(p.id)}" data-busca="${esc(busca)}"${p.bajaTokko?' style="opacity:.6"':''}>
       <h3>${esc(p.direccion)}</h3>
       <div class="muted chico">${esc([p.tipo,p.barrio].filter(Boolean).join(' · '))}${p.codigo?' · '+esc(p.codigo):''}</div>
       <div style="font-weight:600;margin:8px 0">${usd(n(p.precio))}${p.operacion==='Alquiler'?' <span class="muted chico">/ mes · alquiler</span>':''}</div>
@@ -588,8 +593,24 @@ async function cargarLista(){
     </div>`;
   }).join('');
   el.querySelectorAll('.prop').forEach(c=>c.onclick=()=>abrirProp(c.dataset.id));
+  filtrarLista();
   mostrarBanner();
 }
+// Buscador: cada palabra que se escribe tiene que aparecer (en cualquier orden).
+function filtrarLista(){
+  const palabras = sinAcentos($('#buscar').value).split(/\s+/).filter(Boolean);
+  let visibles=0;
+  document.querySelectorAll('#listaProps .prop').forEach(c=>{
+    const ok = palabras.every(w=>c.dataset.busca.includes(w));
+    c.classList.toggle('oculto', !ok); if(ok) visibles++;
+  });
+  let msg=$('#sinResultados');
+  if(palabras.length && !visibles){
+    if(!msg){ msg=document.createElement('div'); msg.id='sinResultados'; msg.className='card vacio'; msg.style.gridColumn='1/-1'; $('#listaProps').appendChild(msg); }
+    msg.textContent='No hay propiedades que coincidan con la búsqueda.';
+  } else if(msg) msg.remove();
+}
+$('#buscar').addEventListener('input', filtrarLista);
 async function mostrarBanner(){
   const b=$('#bannerMes'); b.classList.add('oculto');
   try{
@@ -810,7 +831,7 @@ function faltantes(it){
   return f;
 }
 function pintarMesTodos(mes){
-  MT.sort((a,b)=>(a.p.direccion||'').localeCompare(b.p.direccion||''));
+  MT.sort((a,b)=>ordenDir(a.p.direccion,b.p.direccion));
   const con=MT.filter(x=>x.m), listos=con.filter(x=>!faltantes(x).length);
   const porRec={}; con.forEach(x=>{ porRec[x.m.rec]=(porRec[x.m.rec]||0)+1; });
   $('#mtResumen').innerHTML=`<span class="tag gris">${MT.length} propiedades</span><span class="tag verde">${listos.length} completos</span><span class="tag ambar">${con.length-listos.length} con datos faltantes</span>${MT.length-con.length?`<span class="tag gris">${MT.length-con.length} sin borrador</span>`:''}`+
