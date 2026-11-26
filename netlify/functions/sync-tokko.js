@@ -72,11 +72,17 @@ async function sincronizar(db, tokko) {
     const t = datosDe(p);
     const ex = existentes[id];
     if (!ex) {
-      escrituras.push([id, { ...t, origenTokko: true, propietario: '', telPropietario: '', actualizado: ahora, vistoTokko: ahora }, false]);
+      escrituras.push([id, { ...t, fechaDeTokko: !!t.fechaPublicacion, origenTokko: true, propietario: '', telPropietario: '', actualizado: ahora, vistoTokko: ahora }, false]);
       res.nuevas.push(t.direccion);
       continue;
     }
     const cambios = { vistoTokko: ahora };
+    // La fecha de publicación siempre sale de Tokko (pisa lo que hubiera cargado a mano).
+    if (t.fechaPublicacion && t.fechaPublicacion !== ex.fechaPublicacion) {
+      cambios.fechaPublicacion = t.fechaPublicacion;
+      res.fechas = (res.fechas || 0) + 1;
+    }
+    if (t.fechaPublicacion) cambios.fechaDeTokko = true;
     if (t.precio != null && t.precio !== ex.precio) {
       cambios.precio = t.precio; cambios.moneda = t.moneda; cambios.actualizado = ahora;
       res.precios.push(`${ex.direccion || t.direccion}: ${ex.precio ?? '–'} → ${t.precio}`);
