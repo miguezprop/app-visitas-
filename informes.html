@@ -193,7 +193,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
           <div><label>Barrio / zona</label><input name="barrio" placeholder="City Bell, Gonnet…"></div>
           <div><label>Tipo</label><select name="tipo"><option>Casa</option><option>Departamento</option><option>PH</option><option>Terreno</option><option>Lote</option><option>Local</option><option>Oficina</option><option>Cochera</option><option>Otro</option></select></div>
           <div><label>Código (Tokko)</label><input name="codigo"></div>
-          <div><label>Fecha de publicación</label><input name="fechaPublicacion" type="date"></div>
+          <div><label>Fecha de publicación</label><input name="fechaPublicacion" type="date"><div class="ayuda" id="ayudaFecha"></div></div>
           <div><label>Operación</label><select name="operacion"><option>Venta</option><option>Alquiler</option></select></div>
           <div><label>Moneda</label><select name="moneda"><option value="USD">USD</option><option value="ARS">$ (pesos)</option></select></div>
           <div><label>Precio publicado *</label><input name="precio" type="number" min="0" step="500" required></div>
@@ -272,6 +272,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
     <button class="atras" data-ir="prop">← Volver a la propiedad</button>
     <div class="lado" style="grid-template-columns:320px 1fr">
       <div class="card">
+        <div id="avisoFecha" class="aviso oculto" style="background:var(--rojo-claro);color:var(--rojo-osc)">⚠️ Esta propiedad no tiene fecha de publicación. Tocá “🔄 Actualizar desde Tokko” en la lista antes de enviar el informe.</div>
         <h2>Recomendación</h2>
         <label>Informe</label>
         <select id="eTipo" style="margin-bottom:10px"><option value="mensual">Mensual</option><option value="trimestral">Trimestral (últimos 3 meses)</option><option value="completo">Desde la publicación</option></select>
@@ -372,6 +373,7 @@ function diasEntre(a,b){ return Math.max(0, Math.round((b - a)/86400000)) }
 function redondear(v, paso){ paso = paso || (CUR==='ARS'?10000:1000); return Math.round(v/paso)*paso }
 // Ordena direcciones respetando el número de calle (7 antes que 13, 13 antes que 67) y sin distinguir mayúsculas.
 function ordenDir(a,b){ return String(a||'').trim().localeCompare(String(b||'').trim(), 'es', {numeric:true, sensitivity:'base'}); }
+function fechaPubTxt(p){ return p && p.fechaPublicacion ? p.fechaPublicacion.split('-').reverse().join('/') : null; }
 function sinAcentos(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
 function toast(t){ const e=$('#toast'); e.textContent=t; e.classList.add('on'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('on'),2600) }
@@ -459,7 +461,7 @@ function analizar(p, m, hist){
   if(vistas!=null && n(m.vistasProm)) pts.push(`En Zonaprop, los avisos similares tienen en promedio <b>${fmt(n(m.vistasProm))} visualizaciones</b>: el de tu propiedad está ${vistas>=n(m.vistasProm)? 'por encima' : 'por debajo'} del promedio (${pct(Math.abs(vistas/n(m.vistasProm)-1)*100)}).`);
   if(pm2 && p.operacion!=='Alquiler') pts.push(`El precio publicado equivale a <b>${usd(pm2)}/m²</b>${difMerc!=null?`, un ${pct(Math.abs(difMerc))} ${difMerc>=0?'por encima':'por debajo'} del valor de referencia de la zona (${usd(ref)}/m²)`:''}.`);
   if(m.reservada) pts.push(`<b>La propiedad se reservó${m.fechaReserva?` el ${m.fechaReserva.split('-').reverse().join('/')}`:''}</b>${z(m.visitas)?', luego de una de las visitas del mes':''}.`);
-  if(dias!=null && !m.reservada) pts.push(`Lleva <b>${dias} días publicada</b>.`);
+  if(dias!=null && !m.reservada) pts.push(`Lleva <b>${dias} días publicada</b> (desde el ${fechaPubTxt(p)}).`);
   if(z(m.envios)) pts.push(`Enviamos la ficha a <b>${m.envios} cliente${m.envios>1?'s':''}</b> de nuestra base (por email y WhatsApp).`);
   if(m.pauta==='si') pts.push(`Tuvo pauta paga durante el mes${n(m.inversionPauta)?` (inversión de $${fmt(m.inversionPauta)})`:''}.`);
   if(m.devoluciones && m.devoluciones.trim()) pts.push(`Lo que nos dijeron los interesados: ${esc(m.devoluciones.trim())}`);
@@ -509,7 +511,7 @@ function analizarTri(p, m, hist, completo){
   if(n(m.vistasProm) && a.vistas!=null) ptsT.push(`En Zonaprop, el aviso tuvo ${fmt(a.vistas)} visualizaciones el último mes contra un promedio de ${fmt(n(m.vistasProm))} en avisos similares.`);
   if(a.pm2 && p.operacion!=='Alquiler') ptsT.push(`El precio publicado equivale a <b>${usd(a.pm2)}/m²</b>${a.difMerc!=null?`, un ${pct(Math.abs(a.difMerc))} ${a.difMerc>=0?'por encima':'por debajo'} del valor de referencia de la zona`:''}.`);
   if(m.reservada) ptsT.push(`<b>La propiedad se reservó${m.fechaReserva?` el ${m.fechaReserva.split('-').reverse().join('/')}`:''}</b>.`);
-  else if(a.dias!=null) ptsT.push(`Lleva <b>${a.dias} días publicada</b>.`);
+  else if(a.dias!=null) ptsT.push(`Lleva <b>${a.dias} días publicada</b> (desde el ${fechaPubTxt(p)}).`);
   return {...a, t, meses, desde, rec, sug, pts:ptsT, trimestral:true, completo:!!completo};
 }
 function textoRecoTri(rec, A, p, m){
@@ -644,6 +646,12 @@ function llenarFormProp(p){
   const f=$('#fProp');
   ['link','direccion','barrio','codigo','fechaPublicacion','precio','m2','valorM2Mercado','propietario','telPropietario'].forEach(k=>f[k].value=p[k]??'');
   f.tipo.value = p.tipo || 'Casa'; f.operacion.value = p.operacion || 'Venta'; f.moneda.value = p.moneda || 'USD';
+  // Si la propiedad está en Tokko, la fecha de publicación sale de Tokko y no se edita a mano.
+  const deTokko = !!(p.codigo && (p.origenTokko || p.fechaDeTokko || /^tk/.test(p.id||'')));
+  f.fechaPublicacion.readOnly = deTokko;
+  f.fechaPublicacion.style.background = deTokko ? 'var(--fondo)' : '';
+  $('#ayudaFecha').textContent = deTokko ? (p.fechaPublicacion ? 'Se toma de Tokko automáticamente.' : 'Falta: se completa sola al actualizar desde Tokko.') : '';
+  $('#ayudaFecha').style.color = deTokko && !p.fechaPublicacion ? 'var(--rojo)' : '';
 }
 $('#fProp').link.addEventListener('input', e=>{
   const v=e.target.value, f=$('#fProp');
@@ -686,10 +694,9 @@ function renderHist(){
 
 $('#fProp').onsubmit=async e=>{
   e.preventDefault();
-  const f=e.target, o={};
+  const f=e.target; const {id:_i, _nueva:_n, ...previo}=ACTUAL; const o={...previo};
   ['link','direccion','barrio','tipo','codigo','fechaPublicacion','propietario','telPropietario','operacion','moneda'].forEach(k=>o[k]=f[k].value.trim());
   ['precio','m2','valorM2Mercado'].forEach(k=>o[k]=n(f[k].value));
-  if(ACTUAL.ultimo) o.ultimo=ACTUAL.ultimo;
   o.actualizado = new Date().toISOString();
   try{ await datos.guardarProp(ACTUAL.id,o); }catch(err){ toast('No se pudo guardar. Probá de nuevo.'); return; }
   const id=ACTUAL.id; ACTUAL={id,...o};
@@ -932,6 +939,7 @@ function renderInforme(){
   const flecha = (v)=> v==null?'':`<div class="d">${v>=0?'▲':'▼'} ${pct(Math.abs(v))} vs. mes anterior</div>`;
   const tasa=(x,y)=> (x&&y!=null)? pct(y/x*100) : '–';
   const g = grafico(HIST, m.mes);
+  $('#avisoFecha').classList.toggle('oculto', !!p.fechaPublicacion);
   $('#informe').innerHTML = `
   <div class="inf-head">
     <div><div class="m1">MIGUEZ</div><div class="m2">PROPIEDADES</div></div>
@@ -941,13 +949,14 @@ function renderInforme(){
     <div class="inf-prop">
       <div><div class="dir">${esc(p.direccion)}</div>
         <div class="sub">${esc([p.tipo+(p.operacion==='Alquiler'?' en alquiler':' en venta'),p.barrio||'La Plata'].filter(Boolean).join(' · '))}${p.codigo?' · Código '+esc(p.codigo):''}</div>
+        <div class="sub">${fechaPubTxt(p)?`Publicada el <b style="color:var(--tinta)">${fechaPubTxt(p)}</b>`:'Fecha de publicación: sin dato'}</div>
         ${p.propietario?`<div class="sub">Propietario: ${esc(p.propietario)}</div>`:''}</div>
       <div class="per">Período del informe<b>${dia0}/${per0.slice(5)}/${per0.slice(0,4)} al ${String(finDeMes(m.mes).getDate()).padStart(2,'0')}/${m.mes.slice(5)}/${m.mes.slice(0,4)}</b></div>
     </div>
     <div class="kpis">
       <div class="kpi"><div class="v">${usd(a.precio)}</div><div class="l">${p.operacion==='Alquiler'?'Alquiler mensual publicado':'Precio publicado'}</div></div>
       <div class="kpi"><div class="v">${a.pm2?usd(a.pm2):'–'}</div><div class="l">Precio por m²${a.ref?` · ref. zona ${usd(a.ref)}`:''}</div></div>
-      <div class="kpi"><div class="v">${a.dias??'–'}</div><div class="l">Días publicada</div></div>
+      <div class="kpi"><div class="v">${a.dias??'–'}</div><div class="l">Días publicada${fechaPubTxt(p)?` · desde ${fechaPubTxt(p)}`:''}</div></div>
     </div>
     ${T? `<div class="kpis4">
       ${C && a.t.inversion ? `<div class="kpi2"><div class="l">Invertido en pauta</div><div class="v">$${fmt(a.t.inversion)}</div><div class="t">${a.t.mesesPauta} mes${a.t.mesesPauta>1?'es':''} de campaña</div></div>` : `<div class="kpi2"><div class="l">Vistas (${lbl})</div><div class="v">${fmt(a.t.vistas)}</div><div class="t">${fmt(a.t.vistas/Math.max(1,a.t.n))} por mes</div></div>`}
